@@ -1,3 +1,13 @@
+
+def get_signals():
+    """Initialize default traffic signal states."""
+    return [
+        {"id": 1, "state": "RED", "timer": 30},
+        {"id": 2, "state": "RED", "timer": 30},
+        {"id": 3, "state": "RED", "timer": 30},
+        {"id": 4, "state": "RED", "timer": 30},
+    ]
+
 def update_signals(signals):
     """Tick the state machine for traffic signals (1 second per tick roughly in real time, or simulation step)."""
     for s in signals:
