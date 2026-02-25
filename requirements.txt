@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-networkx
-osmnx
-geopy
-pydantic

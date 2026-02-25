@@ -12,6 +12,7 @@ function App() {
 
     // Ambulance state
     const [simulationActive, setSimulationActive] = useState(false)
+    const [simulationSpeed, setSimulationSpeed] = useState(1); // 1x, 2x, 5x, 10x
     const [ambulancePos, setAmbulancePos] = useState(null)
     const [route, setRoute] = useState([])
     const [routeIndex, setRouteIndex] = useState(0)
@@ -72,7 +73,7 @@ function App() {
 
             // Start moving
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
-            simIntervalRef.current = setInterval(simulateMovement, 1000)
+            simIntervalRef.current = setInterval(simulateMovement, 1000 / simulationSpeed)
         } catch (e) {
             addAlert("Routing failed! Using Failsafe Mode - Nearest General Hospital.")
             console.error("Routing error", e)
@@ -110,6 +111,14 @@ function App() {
         })
     }
 
+    // Effect to update interval when speed changes
+    useEffect(() => {
+        if (simulationActive && simIntervalRef.current) {
+            clearInterval(simIntervalRef.current)
+            simIntervalRef.current = setInterval(simulateMovement, 1000 / simulationSpeed)
+        }
+    }, [simulationSpeed, simulationActive])
+
     const addAlert = (msg) => {
         setAlerts(prev => [msg, ...prev].slice(0, 5))
     }
@@ -120,9 +129,9 @@ function App() {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100">
             {/* Sidebar Dashboard */}
-            <div className="w-1/3 min-w-[320px] max-w-[400px] h-full shadow-xl z-10 bg-white flex flex-col">
+            <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-10 bg-slate-900 flex flex-col border-r border-slate-800">
                 <Dashboard
                     startSimulation={startSimulation}
                     loading={loading || !graphLoaded}
@@ -131,11 +140,13 @@ function App() {
                     alerts={alerts}
                     triggerEmergencyOptions={triggerEmergencyOptions}
                     simulationActive={simulationActive}
+                    simulationSpeed={simulationSpeed}
+                    setSimulationSpeed={setSimulationSpeed}
                 />
             </div>
 
             {/* Map Area */}
-            <div className="flex-1 h-full relative">
+            <div className="flex-1 h-full relative bg-slate-950">
                 {!graphLoaded && !loading && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 z-20 flex items-center justify-center pointer-events-none">
                         <div className="bg-white p-6 rounded-lg text-xl font-bold text-gray-800 shadow-lg">
