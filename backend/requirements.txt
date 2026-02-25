@@ -3,3 +3,4 @@ uvicorn
 networkx
 osmnx
 pydantic
+scikit-learn
