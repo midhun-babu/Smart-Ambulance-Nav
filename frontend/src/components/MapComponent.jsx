@@ -1,184 +1,134 @@
-import React, { useEffect } from 'react'
-import {
-    MapContainer,
-    TileLayer,
-    Marker,
-    Popup,
-    Polyline,
-    useMap
-} from 'react-leaflet'
+import { useEffect, useRef } from 'react'
+import { MapContainer, TileLayer, Polyline, Marker, Popup, Circle, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-/* ================= ICONS ================= */
-
-// Ambulance Icon
-const ambulanceIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3203/3203007.png',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
+// Fix default marker icon issue with Vite/webpack
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// Hospital Icon
-const hospitalIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2966/2966327.png',
+// Ambulance icon
+const ambulanceIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+        width: 36px; height: 36px;
+        background: #ef4444;
+        border: 3px solid #ffffff;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px;
+        box-shadow: 0 0 12px 4px rgba(239,68,68,0.6);
+        animation: pulse 1s infinite;
+    ">🚑</div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
-    popupAnchor: [0, -18]
 })
 
-// Traffic Signal Icons
-const signalIcons = {
-    RED: new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814890.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-    }),
-    GREEN: new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814868.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-    }),
-    YELLOW: new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814881.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-    }),
-    PREEMPTED_GREEN: new L.divIcon({
-        className: '',
-        html: `
-      <div style="
-        width:32px;
-        height:32px;
-        border-radius:50%;
-        background:rgba(16,185,129,0.2);
-        box-shadow:0 0 20px rgba(16,185,129,0.9);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        animation:pulse 1.5s infinite;
-      ">
-        <div style="width:12px;height:12px;background:#6ee7b7;border-radius:50%"></div>
-      </div>
-    `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-    })
-}
+// Hospital icon
+const hospitalIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+        width: 32px; height: 32px;
+        background: #22c55e;
+        border: 3px solid #ffffff;
+        border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 0 8px rgba(34,197,94,0.5);
+    ">🏥</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+})
 
-/* ================= MAP FOLLOW ================= */
-
-const MapCenterer = ({ position }) => {
+// Re-center the map when ambulance moves
+function MapFollower({ position }) {
     const map = useMap()
-
     useEffect(() => {
         if (position) {
-            map.panTo(position, {
-                animate: true,
-                duration: 0.6,
-                easeLinearity: 0.25
-            })
+            map.setView(position, map.getZoom(), { animate: true })
         }
     }, [position, map])
-
     return null
 }
 
-/* ================= MAIN COMPONENT ================= */
-
-const MapComponent = ({
-    ambulancePos,
-    route = [],
-    signals = [],
-    targetHospital,
-    center
-}) => {
-    const tileUrl =
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-
+export default function MapComponent({ ambulancePos, route, signals, targetHospital, center }) {
     return (
-        <MapContainer
-            center={center}
-            zoom={14}
-            style={{ height: '100%', width: '100%' }}
-            zoomControl={false}
-            preferCanvas={true}
-        >
-            <TileLayer
-                url={tileUrl}
-                attribution='&copy; OpenStreetMap & CARTO'
-            />
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <style>{`
+                @keyframes pulse {
+                    0%, 100% { box-shadow: 0 0 12px 4px rgba(239,68,68,0.6); }
+                    50% { box-shadow: 0 0 24px 10px rgba(239,68,68,0.9); }
+                }
+            `}</style>
+            <MapContainer
+                center={center || [9.9816, 76.2999]}
+                zoom={14}
+                style={{ width: '100%', height: '100%' }}
+                zoomControl={true}
+            >
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
 
-            {/* Hospital */}
-            {targetHospital && (
-                <Marker
-                    position={[targetHospital.lat, targetHospital.lon]}
-                    icon={hospitalIcon}
-                >
-                    <Popup>
-                        <strong>{targetHospital.name}</strong><br />
-                        {targetHospital.specialization}<br />
-                        ICU Beds: {targetHospital.icu_beds_available}
-                    </Popup>
-                </Marker>
-            )}
+                {/* Follow ambulance */}
+                {ambulancePos && <MapFollower position={ambulancePos} />}
 
-            {/* Ambulance */}
-            {ambulancePos && (
-                <>
-                    <Marker
-                        position={ambulancePos}
-                        icon={ambulanceIcon}
-                        zIndexOffset={1000}
-                    >
-                        <Popup>
-                            <strong>Ambulance Unit 01</strong>
-                        </Popup>
-                    </Marker>
-                    <MapCenterer position={ambulancePos} />
-                </>
-            )}
-
-            {/* Traffic Signals */}
-            {Array.isArray(signals) &&
-                signals.map(signal => (
-                    <Marker
-                        key={signal.id}
-                        position={[signal.lat, signal.lon]}
-                        icon={signalIcons[signal.state] || signalIcons.RED}
-                    >
-                        <Popup>
-                            <strong>Signal {signal.id}</strong><br />
-                            Status: {signal.state}
-                        </Popup>
-                    </Marker>
-                ))}
-
-            {/* Route Glow */}
-            {route.length > 0 && (
-                <>
-                    {/* Glow Layer */}
+                {/* Route polyline */}
+                {route && route.length > 1 && (
                     <Polyline
                         positions={route}
-                        pathOptions={{
-                            color: '#60a5fa',
-                            weight: 10,
-                            opacity: 0.25
-                        }}
+                        color="#3b82f6"
+                        weight={5}
+                        opacity={0.85}
+                        dashArray="10 5"
                     />
-                    {/* Main Route */}
-                    <Polyline
-                        positions={route}
-                        pathOptions={{
-                            color: '#3b82f6',
-                            weight: 5,
-                            opacity: 0.9
-                        }}
-                    />
-                </>
-            )}
-        </MapContainer>
+                )}
+
+                {/* Ambulance marker */}
+                {ambulancePos && (
+                    <Marker position={ambulancePos} icon={ambulanceIcon}>
+                        <Popup>🚑 Ambulance in transit</Popup>
+                    </Marker>
+                )}
+
+                {/* Target hospital marker */}
+                {targetHospital && targetHospital.lat && targetHospital.lon && (
+                    <Marker
+                        position={[targetHospital.lat, targetHospital.lon]}
+                        icon={hospitalIcon}
+                    >
+                        <Popup>
+                            <strong>🏥 {targetHospital.name}</strong><br />
+                            {targetHospital.capabilities?.join(', ')}
+                        </Popup>
+                    </Marker>
+                )}
+
+                {/* Traffic signals */}
+                {signals && signals.map((sig, idx) => {
+                    const color = sig.state === 'GREEN' ? '#22c55e'
+                        : sig.state === 'RED' ? '#ef4444'
+                            : '#eab308'
+                    return (
+                        <Circle
+                            key={idx}
+                            center={[sig.lat, sig.lon]}
+                            radius={30}
+                            pathOptions={{ color, fillColor: color, fillOpacity: 0.7 }}
+                        >
+                            <Popup>
+                                Signal #{sig.id ?? idx}<br />
+                                State: <strong>{sig.state}</strong>
+                            </Popup>
+                        </Circle>
+                    )
+                })}
+            </MapContainer>
+        </div>
     )
 }
-
-export default MapComponent

@@ -20,6 +20,7 @@ try:
         "route": route,
         "speed_kmh": 60
     })
-    print(res2.status_code, str(res2.json())[:500])
+    s = str(res2.json())
+    print(res2.status_code, s[0:500] if len(s) > 500 else s)
 except Exception as e:
     print(f"Error: {e}")

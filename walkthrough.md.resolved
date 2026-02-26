@@ -1,0 +1,78 @@
+# Codebase Walkthrough and Review
+
+I've reviewed the entire codebase for your Intelligent Ambulance Routing project. The architecture is solidly built, dividing responsibilities cleanly between a FastAPI backend and a React/Vite frontend. 
+
+Here is a detailed breakdown of how everything works, along with some suggested corrections.
+
+---
+
+## 1. Backend Architecture
+
+The backend handles all the heavy lifting: processing geographic data, calculating routes, and simulating traffic light states.
+
+### Core Modules:
+- **[main.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/main.py) (The API Server)**: 
+  This is the entry point. It defines the REST API endpoints using FastAPI.
+  - `@app.on_event("startup")`: Loads the map data for Kochi when the server starts.
+  - `/route`: Receives the ambulance's start location and emergency type. It filters the hospitals based on capability, finds the nearest one, and calculates the route using A* (or Dijkstra as a failsafe).
+  - `/simulate/step`: This is called every second by the frontend to move the ambulance. It checks if the ambulance is near any traffic signals (geofencing) and toggles them "Green" if so.
+  - `/signals/status`: Provides the current state (Red, Green, Yellow, etc.) of all signals.
+
+- **[graph_loader.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/graph_loader.py) (Map Data Loader)**:
+   Uses the `osmnx` library to download OpenStreetMap data for Kochi. It converts the roads into a mathematical graph (nodes and edges), calculates travel times, and randomly assigns 20 intersections to be "traffic signals".
+
+- **[routing.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/routing.py) (The A* Algorithm)**:
+   This file calculates the shortest path based on travel time. It uses a **heuristic** function (straight-line distance divided by an 80km/h max speed) to guide the A* algorithm intelligently towards the destination, which is faster than standard Dijkstra.
+
+- **[simulation.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/simulation.py) & [signal_model.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/signal_model.py) (The Simulation Logic)**:
+  - **[simulation.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/simulation.py)** uses the **Haversine formula** to calculate the distance between the moving ambulance and traffic signals. If the distance is less than 300 meters, it triggers a preemption.
+  - **[signal_model.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/signal_model.py)** defines a state machine for the traffic lights. They cycle normally (Red -> Green -> Yellow -> Red) every few seconds unless preempted. If preempted, they stay `PREEMPTED_GREEN` for a 25-second clean window.
+
+- **[hospital_data.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/hospital_data.py)**:
+   Acts as a mock database. It stores the coordinates and capabilities (Trauma, Cardiac, ICU beds) of 5 hospitals.
+
+---
+
+## 2. Frontend Architecture
+
+The frontend is built with React and Leaflet for mapping.
+
+### Core Components:
+- **[App.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx) (State Manager)**:
+  This is the brain of the frontend. It holds all the state (`ambulancePos`, [route](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/main.py#64-111), [signals](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/signal_model.py#2-10), etc.). 
+  - Every 2 seconds, it fetches the traffic signal states ([fetchSignals](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx#47-55)).
+  - When you click "Start", it creates an interval (`simIntervalRef`) that ticks every 1 second, advancing the ambulance to the next node on the route and calling `/simulate/step` on the backend.
+
+- **[Dashboard.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/components/Dashboard.jsx) (User Interface)**:
+  The left sidebar where the operator can choose the emergency type (General, Trauma, Cardiac) and start location. It also displays the target hospital ETA and system alerts (like "Signal Preempted Ahead!").
+
+- **[MapComponent.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/components/MapComponent.jsx) (The Map View)**:
+  Uses `react-leaflet` to display the map. It places icons for the ambulance, the target hospital, and all the traffic signals. It also draws a blue polyline for the calculated route.
+
+- **[api.js](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js)**:
+  A small helper file generated for making API calls. (Note: It is currently unused, which leads us to our corrections below).
+
+---
+
+## 3. Code Review & Proposed Corrections
+
+Your code is remarkably clean, but there are a few minor things to improve or watch out for:
+
+### 1. Unused File ([frontend/src/services/api.js](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js))
+- **Observation:** You have a file [api.js](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js) using [fetch](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js#3-14) to define [fetchRoute](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js#3-14). However, inside [App.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx), you use `axios` directly to make all network requests.
+- **Correction:** You can safely delete [api.js](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/services/api.js) OR refactor [App.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx) to use it for cleaner code separation.
+
+### 2. Traffic Signal Icon `className` ([MapComponent.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/components/MapComponent.jsx))
+- **Observation:** In `signalIcons["PREEMPTED_GREEN"]`, you added Tailwind CSS classes like `.ring-4` and `.animate-pulse` to `className`. Leaflet applies these classes directly to the `<img>` HTML element. While it will work visually for the most part, sometimes CSS styling behaves unexpectedly on Leaflet icon images.
+- **Correction:** If you ever notice the "halo" effect looking weird or misaligned, Leaflet's `L.divIcon` is typically recommended over `L.Icon` for applying CSS animations.
+
+### 3. Failsafe Logic Redundancy
+- **Observation:** In [App.jsx](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx), inside [startSimulation](file:///c:/Users/midhu/OneDrive/Desktop/root-project/frontend/src/App.jsx#56-83), the frontend has a try/catch block that triggers "Failsafe Mode - Nearest General Hospital". But in [main.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/main.py), the backend *also* handles the failsafe mode if A* fails by falling back to Dijkstra, and also handles hospital assignment fallback if no specialized hospital is found.
+- **Correction:** This double-layer is actually good for reliability. Just be aware that if the backend crashes completely, the frontend catch block will fire, but the simulation won't actually have a route to follow since the backend failed to return one.
+
+### 4. Wait for Background Downloads
+- **Observation:** The backend graph loader ([graph_loader.py](file:///c:/Users/midhu/OneDrive/Desktop/root-project/backend/graph_loader.py)) blocks the startup of FastAPI because it happens in the `@app.on_event("startup")` function. OpenStreetMap requests can sometimes timeout.
+- **Note:** It's completely fine for a local simulation, but something to remember if you deploy it to a production server—production servers often have short timeout windows for startup scripts.
+
+### Overall Conclusion
+The logic accurately simulates a real-world edge case (traffic preemption). The separation over REST API allows you to potentially swap the React frontend out for an Android/iOS app later if you wanted, which is an excellent architectural choice!
