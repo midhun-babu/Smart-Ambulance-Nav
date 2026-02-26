@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Activity, Hospital, Zap, Play, StopCircle } from 'lucide-react'
+import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader } from 'lucide-react'
 
 const CASE_PRESETS = [
     { label: 'Cardiac Arrest', type: 'cardiac', emoji: '❤️', lat: 9.9816, lon: 76.2999 },
@@ -18,28 +18,43 @@ export default function Dashboard({
     simulationActive,
     simulationSpeed,
     setSimulationSpeed,
+    userLocation,
+    onGetGPS,
+    gpsLoading,
 }) {
     const [selectedCase, setSelectedCase] = useState(CASE_PRESETS[0])
+    const [useGPS, setUseGPS] = useState(false)
 
     const handleStart = () => {
-        startSimulation(selectedCase.type, selectedCase.lat, selectedCase.lon)
+        if (useGPS && userLocation) {
+            startSimulation(selectedCase.type, userLocation[0], userLocation[1])
+        } else {
+            startSimulation(selectedCase.type, selectedCase.lat, selectedCase.lon)
+        }
+    }
+
+    const handleGPSToggle = () => {
+        if (!useGPS && !userLocation) {
+            onGetGPS()
+        }
+        setUseGPS(v => !v)
     }
 
     return (
-        <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto stylish-scrollbar">
+        <div className="flex flex-col h-full p-4 gap-3 overflow-y-auto stylish-scrollbar">
             {/* Header */}
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
-                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-2xl">🚑</div>
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-700/80">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-2xl shrink-0">🚑</div>
                 <div>
-                    <h1 className="text-base font-bold text-slate-100 leading-tight">SmartAmbulance</h1>
-                    <p className="text-xs text-slate-400">Kerala Emergency Response System</p>
+                    <h1 className="text-base font-bold text-slate-100 leading-tight">SmartAmbulance Nav</h1>
+                    <p className="text-[11px] text-slate-500">Ernakulam Emergency Response · Kerala</p>
                 </div>
-                <div className={`ml-auto w-2.5 h-2.5 rounded-full ${loading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} title={loading ? 'Loading…' : 'Ready'} />
+                <div className={`ml-auto w-2.5 h-2.5 rounded-full shrink-0 ${loading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} title={loading ? 'Loading…' : 'Backend Ready'} />
             </div>
 
-            {/* Case Selector */}
+            {/* Emergency Type */}
             <div>
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Emergency Type</label>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Emergency Type</label>
                 <div className="grid grid-cols-2 gap-2">
                     {CASE_PRESETS.map(c => (
                         <button
@@ -47,20 +62,76 @@ export default function Dashboard({
                             onClick={() => setSelectedCase(c)}
                             className={`flex items-center gap-2 p-2.5 rounded-lg text-sm font-medium transition-all border
                                 ${selectedCase.type === c.type
-                                    ? 'bg-red-500/20 border-red-500 text-red-300'
-                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'}`}
+                                    ? 'bg-red-500/20 border-red-500/70 text-red-300'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-600'}`}
                         >
                             <span>{c.emoji}</span>
-                            <span>{c.label}</span>
+                            <span className="text-xs">{c.label}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
+            {/* GPS Location Section */}
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <MapPin size={11} /> Dispatch Origin
+                </label>
+
+                <div className="flex flex-col gap-2">
+                    {/* Get GPS button */}
+                    <button
+                        onClick={onGetGPS}
+                        disabled={gpsLoading}
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-semibold transition-all disabled:opacity-50"
+                    >
+                        {gpsLoading
+                            ? <><Loader size={13} className="animate-spin" /> Getting GPS…</>
+                            : <><Navigation size={13} /> {userLocation ? 'Update GPS Location' : 'Use My GPS Location'}</>
+                        }
+                    </button>
+
+                    {userLocation && (
+                        <div className="text-[11px] text-slate-400 bg-slate-800 rounded-lg px-3 py-2 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
+                            <span className="font-mono text-blue-300">
+                                {userLocation[0].toFixed(5)}, {userLocation[1].toFixed(5)}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Toggle: preset or GPS */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setUseGPS(false)}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all
+                                ${!useGPS ? 'bg-slate-600 border-slate-400 text-slate-100' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+                        >
+                            📍 Preset Location
+                        </button>
+                        <button
+                            onClick={handleGPSToggle}
+                            disabled={!userLocation}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all
+                                ${useGPS && userLocation ? 'bg-blue-700/40 border-blue-500 text-blue-200' : 'bg-slate-800 border-slate-700 text-slate-500'}
+                                disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                            🛰 My GPS
+                        </button>
+                    </div>
+
+                    {useGPS && !userLocation && (
+                        <p className="text-[10px] text-yellow-400/80 text-center">
+                            ↑ Get GPS location first to enable
+                        </p>
+                    )}
+                </div>
+            </div>
+
             {/* Simulation Speed */}
             <div>
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block flex items-center gap-1">
-                    <Zap size={12} /> Simulation Speed
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Zap size={11} /> Simulation Speed
                 </label>
                 <div className="flex gap-2">
                     {[1, 2, 5, 10].map(s => (
@@ -70,7 +141,7 @@ export default function Dashboard({
                             className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border
                                 ${simulationSpeed === s
                                     ? 'bg-blue-500/30 border-blue-500 text-blue-300'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}
                         >
                             {s}×
                         </button>
@@ -82,36 +153,39 @@ export default function Dashboard({
             <div className="flex flex-col gap-2">
                 <button
                     onClick={handleStart}
-                    disabled={loading}
+                    disabled={loading || (useGPS && !userLocation)}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-all shadow-lg shadow-red-900/30"
                 >
-                    <Play size={16} />
-                    {loading ? 'Calculating Route…' : 'Dispatch Ambulance'}
+                    <Play size={15} />
+                    {loading ? 'Calculating Route…' : useGPS && userLocation ? `Dispatch from GPS` : 'Dispatch Ambulance'}
                 </button>
                 <button
                     onClick={triggerEmergencyOptions}
-                    className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium text-sm transition-all"
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-all border border-slate-600"
                 >
-                    <AlertTriangle size={14} />
+                    <AlertTriangle size={13} />
                     Activate Failsafe
                 </button>
             </div>
 
             {/* Hospital Info */}
             {targetHospital && (
-                <div className="rounded-xl bg-emerald-900/30 border border-emerald-700/40 p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Activity size={14} className="text-emerald-400" />
-                        <span className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">Routed Hospital</span>
+                <div className="rounded-xl bg-emerald-900/25 border border-emerald-700/35 p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <Activity size={13} className="text-emerald-400" />
+                        <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Routed Hospital</span>
                     </div>
                     <p className="text-sm font-bold text-slate-100">{targetHospital.name}</p>
+                    {targetHospital.specialization && (
+                        <p className="text-[11px] text-slate-500 mt-0.5">{targetHospital.specialization}</p>
+                    )}
                     {travelTime && (
-                        <p className="text-xs text-slate-400 mt-0.5">ETA: <span className="text-emerald-300 font-semibold">{travelTime} min</span></p>
+                        <p className="text-xs text-slate-400 mt-1">ETA: <span className="text-emerald-300 font-bold">{travelTime} min</span></p>
                     )}
                     {targetHospital.capabilities && (
                         <div className="flex flex-wrap gap-1 mt-2">
                             {targetHospital.capabilities.map(cap => (
-                                <span key={cap} className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-800/50 text-emerald-300 border border-emerald-700/30">
+                                <span key={cap} className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-800/40 text-emerald-300 border border-emerald-700/25">
                                     {cap}
                                 </span>
                             ))}
@@ -121,36 +195,34 @@ export default function Dashboard({
             )}
 
             {/* Alerts Log */}
-            <div className="flex-1">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">System Alerts</label>
-                <div className="flex flex-col gap-2">
+            <div className="flex-1 min-h-0">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">System Alerts</label>
+                <div className="flex flex-col gap-1.5">
                     {alerts.length === 0 && (
-                        <p className="text-xs text-slate-600 italic">No alerts yet. Dispatch to begin.</p>
+                        <p className="text-xs text-slate-600 italic px-1">No alerts yet. Dispatch to begin.</p>
                     )}
                     {alerts.map((alert, i) => (
                         <div
                             key={i}
-                            className={`flex items-start gap-2 p-2.5 rounded-lg text-xs border
-                                ${i === 0 ? 'bg-blue-900/30 border-blue-700/40 text-blue-200' : 'bg-slate-800/50 border-slate-700/30 text-slate-400'}`}
+                            className={`flex items-start gap-2 px-2.5 py-2 rounded-lg text-xs border transition-all
+                                ${i === 0 ? 'bg-blue-900/25 border-blue-700/35 text-blue-200' : 'bg-slate-800/30 border-slate-700/20 text-slate-400'}`}
                         >
-                            <span className="mt-0.5 shrink-0">
-                                {i === 0 ? '🔵' : '⚪'}
-                            </span>
+                            <span className="shrink-0 mt-0.5">{i === 0 ? '🔵' : '⚪'}</span>
                             {alert}
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Status Badge */}
+            {/* Active sim badge */}
             {simulationActive && (
-                <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold">
-                    <StopCircle size={14} className="animate-pulse" />
+                <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-semibold shrink-0">
+                    <StopCircle size={13} className="animate-pulse" />
                     Simulation Active
                 </div>
             )}
 
-            <p className="text-[10px] text-slate-700 text-center pb-1">Smart Ambulance Nav v1.0 · Kochi, Kerala</p>
+            <p className="text-[10px] text-slate-700 text-center pb-1 shrink-0">Smart Ambulance Nav v1.0 · Ernakulam, Kerala</p>
         </div>
     )
 }

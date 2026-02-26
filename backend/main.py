@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import math
+import httpx
 
 from graph_loader import load_graph, get_nearest_node
 from hospital_data import filter_hospitals
@@ -56,10 +57,48 @@ def get_graph_status():
         return {"status": "error", "message": "Graph not loaded."}
     return {"status": "loaded", "nodes": len(G.nodes), "edges": len(G.edges)}
 
+@app.get("/hospitals")
+def get_all_hospitals():
+    """Return all hospitals in Ernakulam for map rendering."""
+    return {"hospitals": hospitals}
+
 @app.get("/hospital/filter")
 def get_filtered_hospitals(case_type: str):
     valid_hospitals = filter_hospitals(hospitals, case_type)
     return {"hospitals": valid_hospitals}
+
+@app.get("/overpass/signals")
+async def get_overpass_signals():
+    """
+    Fetch real traffic signal locations from OSM Overpass API
+    for Ernakulam district bounding box.
+    bbox: south=9.85, west=76.18, north=10.25, east=76.65
+    """
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = """
+[out:json][timeout:30];
+(
+  node["highway"="traffic_signals"](9.85,76.18,10.25,76.65);
+);
+out body;
+"""
+    try:
+        async with httpx.AsyncClient(timeout=35.0) as client:
+            resp = await client.post(overpass_url, data={"data": query})
+            resp.raise_for_status()
+            data = resp.json()
+        result = []
+        for elem in data.get("elements", []):
+            if elem.get("type") == "node":
+                result.append({
+                    "id": elem["id"],
+                    "lat": elem["lat"],
+                    "lon": elem["lon"],
+                    "name": elem.get("tags", {}).get("name", ""),
+                })
+        return {"signals": result, "count": len(result)}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Overpass API error: {str(e)}")
 
 @app.post("/route")
 def get_route(req: RouteRequest):
