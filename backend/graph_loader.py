@@ -24,6 +24,12 @@ def load_graph(place_name="Kochi, Kerala, India"):
         north, south, east, west = 10.0500, 9.9200, 76.3500, 76.2200
         G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
     
+    # Ensure the graph is fully connected (strongly connected) so A* routing doesn't fail
+    print("Extracting largest strongly connected component...")
+    G_strong = ox.truncate.largest_component(G, strongly=True)
+    G_strong.graph.update(G.graph) # preserve CRS
+    G = G_strong
+
     # Add edge speeds and calculate travel times
     G = ox.add_edge_speeds(G)
     G = ox.add_edge_travel_times(G)
