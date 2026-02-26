@@ -7,8 +7,7 @@ def get_nearest_node(G, lat, lon):
     return ox.distance.nearest_nodes(G, X=lon, Y=lat)
 
 def load_graph(place_name="Kochi, Kerala, India"):
-    # Using Kochi by default for performance, otherwise state-level graph is too large for local run on typical laptops
-    # "Kerala, India" can be used if requested but typically crashes on 16GB RAM for full road network
+    # Using Kochi by default for performance
     
     # Configure OSMnx to use local cache and be quiet
     ox.settings.log_console = False
@@ -21,14 +20,21 @@ def load_graph(place_name="Kochi, Kerala, India"):
     except Exception as e:
         print(f"Failed to load {place_name}. Falling back to a smaller bbox (Ernakulam center). Error: {e}")
         # Bounding box roughly around Kochi center as fallback
+        # OSMnx 2.0+ requires bbox=(north, south, east, west)
         north, south, east, west = 10.0500, 9.9200, 76.3500, 76.2200
-        G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
+        G = ox.graph_from_bbox(bbox=(north, south, east, west), network_type='drive')
     
+    if G is None or len(G.nodes) == 0:
+        raise RuntimeError("Failed to load graph data.")
+
     # Ensure the graph is fully connected (strongly connected) so A* routing doesn't fail
     print("Extracting largest strongly connected component...")
-    G_strong = ox.truncate.largest_component(G, strongly=True)
-    G_strong.graph.update(G.graph) # preserve CRS
-    G = G_strong
+    # OSMnx 2.0+ uses ox.utils_graph.get_largest_component
+    try:
+        G = ox.utils_graph.get_largest_component(G, strongly=True)
+    except AttributeError:
+        # Fallback for older versions if needed
+        G = ox.truncate.largest_component(G, strongly=True)
 
     # Add edge speeds and calculate travel times
     G = ox.add_edge_speeds(G)
@@ -47,8 +53,14 @@ def load_graph(place_name="Kochi, Kerala, India"):
     signals = []
     signal_id = 1
     for n in signal_nodes:
-        lat = G.nodes[n]['y']
-        lon = G.nodes[n]['x']
+        # Accessing node attributes safely
+        node_attr = G.nodes[n]
+        lat = node_attr.get('y', node_attr.get('lat'))
+        lon = node_attr.get('x', node_attr.get('lon'))
+        
+        if lat is None or lon is None:
+            continue
+
         signals.append({
             "id": signal_id,
             "node_id": n,

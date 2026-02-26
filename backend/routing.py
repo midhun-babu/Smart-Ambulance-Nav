@@ -8,13 +8,19 @@ def heuristic(u, v, G):
     1 degree ~ 111km.
     """
     try:
-        u_y, u_x = G.nodes[u]['y'], G.nodes[u]['x']
-        v_y, v_x = G.nodes[v]['y'], G.nodes[v]['x']
+        node_u = G.nodes[u]
+        node_v = G.nodes[v]
+        u_y, u_x = node_u.get('y', node_u.get('lat')), node_u.get('x', node_u.get('lon'))
+        v_y, v_x = node_v.get('y', node_v.get('lat')), node_v.get('x', node_v.get('lon'))
+        
+        if None in (u_y, u_x, v_y, v_x):
+            return 0
+            
         # Distance in km roughly
         dist = math.hypot(v_y - u_y, v_x - u_x) * 111
         # Assuming max speed 80 km/h, min time in seconds:
         return (dist / 80) * 3600
-    except:
+    except Exception:
         return 0
 
 def calculate_route_astar(G, start_node, end_node):

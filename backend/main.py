@@ -7,7 +7,7 @@ import math
 from graph_loader import load_graph, get_nearest_node
 from hospital_data import filter_hospitals
 from routing import calculate_route_astar, calculate_route_dijkstra
-from signal_model import get_signals, trigger_preemption, update_signals
+from signal_model import trigger_preemption, update_signals
 from simulation import simulate_step
 
 app = FastAPI(title="Intelligent Ambulance Routing")

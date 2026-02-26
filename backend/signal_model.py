@@ -1,12 +1,5 @@
-
-def get_signals():
-    """Initialize default traffic signal states."""
-    return [
-        {"id": 1, "state": "RED", "timer": 30},
-        {"id": 2, "state": "RED", "timer": 30},
-        {"id": 3, "state": "RED", "timer": 30},
-        {"id": 4, "state": "RED", "timer": 30},
-    ]
+# Traffic signal state management is now integrated with graph_loader.py
+# This module focus on signal logic and preemption.
 
 def update_signals(signals):
     """Tick the state machine for traffic signals (1 second per tick roughly in real time, or simulation step)."""
