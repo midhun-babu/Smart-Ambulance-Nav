@@ -82,7 +82,7 @@ def get_route(req: RouteRequest):
             min_dist = dist
             best_hospital = h
             
-    if not best_hospital:
+    if best_hospital is None:
         raise HTTPException(status_code=404, detail="No suitable hospital found.")
 
     # 2. Get nearest nodes
