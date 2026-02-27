@@ -36,9 +36,38 @@ def load_graph(place_name="Kochi, Kerala, India"):
         # Fallback for older versions if needed
         G = ox.truncate.largest_component(G, strongly=True)
 
-    # Add edge speeds and calculate travel times
+    # Add edge speeds and calculate travel times (static values from OSM)
     G = ox.add_edge_speeds(G)
     G = ox.add_edge_travel_times(G)
+
+    # === traffic attributes for demo ===
+    # We'll keep a base_speed_kph derived from maxspeed or the assigned speed,
+    # and maintain a current_speed_kph that can fluctuate over time.
+    for u, v, k, data in G.edges(keys=True, data=True):
+        # OSMnx may store maxspeed as string or list; try to coerce to float
+        base = None
+        maxspeed = data.get('maxspeed')
+        if isinstance(maxspeed, (list, tuple)) and maxspeed:
+            maxspeed = maxspeed[0]
+        if isinstance(maxspeed, str):
+            try:
+                base = float(maxspeed.split()[0])
+            except Exception:
+                base = None
+        elif isinstance(maxspeed, (int, float)):
+            base = float(maxspeed)
+        if base is None:
+            base = data.get('speed_kph', 50.0)
+        # set both base and current speeds initially to the same value
+        data['base_speed_kph'] = base
+        data['current_speed_kph'] = base
+        # compute a matching travel time based on current speed
+        length = data.get('length', 0.0)  # meters
+        if base > 0:
+            data['current_travel_time'] = length / base * 3600
+        else:
+            data['current_travel_time'] = data.get('travel_time', 0)
+    # === end traffic initialization ===
 
     # Convert node attributes to ensure they are accessible
     # Also randomly assign ~20 intersections as traffic signals
