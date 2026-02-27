@@ -22,15 +22,46 @@ export default function Dashboard({
     userLocation,
     onGetGPS,
     gpsLoading,
+    isPickingLocation,
+    setIsPickingLocation,
+    pickedLocation,
+    setPickedLocation,
 }) {
     const [selectedCase, setSelectedCase] = useState(CASE_PRESETS[0])
     const [useGPS, setUseGPS] = useState(false)
 
+    const TEST_SCENARIOS = [
+        { name: 'Select Test Scenario...', lat: 0, lon: 0 },
+        { name: 'Marine Drive', lat: 9.9816, lon: 76.2999 },
+        { name: 'Lulu Mall, Edappally', lat: 10.0260, lon: 76.3120 },
+        { name: 'MG Road Metro', lat: 9.9750, lon: 76.2800 },
+        { name: 'Vytila Hub', lat: 9.9680, lon: 76.3180 },
+        { name: 'Infopark, Kakkanad', lat: 10.0100, lon: 76.3600 },
+    ]
+
     const handleStart = () => {
+        let startLat, startLon;
+
         if (useGPS && userLocation) {
-            startSimulation(selectedCase.type, userLocation[0], userLocation[1])
-        } else if (!useGPS) {
-            startSimulation(selectedCase.type, selectedCase.lat, selectedCase.lon)
+            startLat = userLocation[0];
+            startLon = userLocation[1];
+        } else if (pickedLocation) {
+            startLat = pickedLocation[0];
+            startLon = pickedLocation[1];
+        } else {
+            startLat = selectedCase.lat;
+            startLon = selectedCase.lon;
+        }
+
+        startSimulation(selectedCase.type, startLat, startLon);
+    }
+
+    const handleScenarioChange = (e) => {
+        const scenario = TEST_SCENARIOS.find(s => s.name === e.target.value);
+        if (scenario && scenario.lat !== 0) {
+            setPickedLocation([scenario.lat, scenario.lon]);
+            setUseGPS(false);
+            setIsPickingLocation(false);
         }
     }
 
@@ -38,9 +69,9 @@ export default function Dashboard({
         if (!useGPS) {
             if (!userLocation) {
                 onGetGPS()
-                // Don't set useGPS to true immediately; wait for user to click My GPS again or check in setUseGPS
             } else {
                 setUseGPS(true)
+                setPickedLocation(null)
             }
         } else {
             setUseGPS(false)
@@ -79,10 +110,42 @@ export default function Dashboard({
                 </div>
             </div>
 
-            {/* GPS Location Section */}
+            {/* Selection / Testing */}
             <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <MapPin size={11} /> Dispatch Origin
+                    <Navigation size={11} /> Selection / Testing
+                </label>
+                <div className="flex flex-col gap-2">
+                    <select
+                        onChange={handleScenarioChange}
+                        value={pickedLocation ? '' : 'Select Test Scenario...'}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors"
+                    >
+                        {TEST_SCENARIOS.map(s => (
+                            <option key={s.name} value={s.name}>{s.name}</option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={() => { setIsPickingLocation(!isPickingLocation); if (!isPickingLocation) setUseGPS(false); }}
+                        className={`w-full py-2 rounded-lg text-xs font-semibold border transition-all
+                            ${isPickingLocation ? 'bg-orange-500/20 border-orange-500 text-orange-300 animate-pulse' : 'bg-slate-700/50 border-slate-600 text-slate-300'}`}
+                    >
+                        {isPickingLocation ? 'Click on Map to Drop Pin' : '📍 Pick Location on Map'}
+                    </button>
+
+                    {pickedLocation && !isPickingLocation && (
+                        <div className="text-[10px] text-green-400 text-center bg-green-500/10 py-1 rounded border border-green-500/20">
+                            ✓ Custom location selected
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* GPS Location Section */}
+            <div className="rounded-xl border border-slate-700 bg-slate-800/20 p-3">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <MapPin size={11} /> Device Origin (GPS)
                 </label>
 
                 <div className="flex flex-col gap-2">
@@ -110,7 +173,7 @@ export default function Dashboard({
                     {/* Toggle: preset or GPS */}
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => setUseGPS(false)}
+                            onClick={() => { setUseGPS(false); setIsPickingLocation(false); }}
                             className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all
                                 ${!useGPS ? 'bg-slate-600 border-slate-400 text-slate-100' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
                         >
@@ -160,11 +223,11 @@ export default function Dashboard({
             <div className="flex flex-col gap-2">
                 <button
                     onClick={handleStart}
-                    disabled={loading || (useGPS && !userLocation) || simulationActive}
+                    disabled={loading || (useGPS && !userLocation) || simulationActive || isPickingLocation}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-all shadow-lg shadow-red-900/30"
                 >
                     <Play size={15} />
-                    {loading ? 'Calculating Route…' : simulationActive ? 'Ambulance in Transit' : useGPS && userLocation ? `Dispatch from GPS` : 'Dispatch Ambulance'}
+                    {loading ? 'Calculating Route…' : simulationActive ? 'Ambulance in Transit' : useGPS && userLocation ? `Dispatch from GPS` : pickedLocation ? 'Dispatch from Picked Point' : 'Dispatch Ambulance'}
                 </button>
 
                 {simulationActive && (

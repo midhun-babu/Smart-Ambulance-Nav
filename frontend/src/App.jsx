@@ -30,6 +30,10 @@ function App() {
     const [userLocation, setUserLocation] = useState(null)
     const [gpsLoading, setGpsLoading] = useState(false)
 
+    // Manual Picking state
+    const [isPickingLocation, setIsPickingLocation] = useState(false)
+    const [pickedLocation, setPickedLocation] = useState(null)
+
     const simIntervalRef = useRef(null)
     // Store route in a ref so setInterval can access the latest value
     const routeRef = useRef([])
@@ -110,6 +114,8 @@ function App() {
             setAmbulancePos([startLat, startLon])
             setRouteIndex(0)
             setSimulationActive(true)
+            setPickedLocation(null) // Clear picked location on start
+            setIsPickingLocation(false) // Disable picking mode
             addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} min.`)
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
@@ -203,6 +209,10 @@ function App() {
                 <Dashboard
                     startSimulation={startSimulation}
                     stopSimulation={stopSimulation}
+                    isPickingLocation={isPickingLocation}
+                    setIsPickingLocation={setIsPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
                     loading={loading || !graphLoaded}
                     targetHospital={targetHospital}
                     travelTime={travelTime}
@@ -235,6 +245,9 @@ function App() {
                     targetHospital={targetHospital}
                     userLocation={userLocation}
                     center={[9.9816, 76.2999]}
+                    isPickingLocation={isPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
                 />
             </div>
         </div>

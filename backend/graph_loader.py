@@ -70,9 +70,9 @@ def load_graph(place_name="Kochi, Kerala, India"):
     # === end traffic initialization ===
 
     # Convert node attributes to ensure they are accessible
-    # Also randomly assign ~20 intersections as traffic signals
+    # Also randomly assign ~100 intersections as traffic signals (increased from 20 for better geofencing)
     nodes = list(G.nodes)
-    signal_nodes = random.sample(nodes, min(20, len(nodes)))
+    signal_nodes = random.sample(nodes, min(100, len(nodes)))
     
     nx.set_node_attributes(G, False, 'is_signal')
     for n in signal_nodes:

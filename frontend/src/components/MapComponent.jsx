@@ -1,5 +1,16 @@
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Polyline, Marker, Popup, Circle, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet'
+
+function MapEvents({ isPickingLocation, setPickedLocation }) {
+    useMapEvents({
+        click(e) {
+            if (isPickingLocation) {
+                setPickedLocation([e.latlng.lat, e.latlng.lng])
+            }
+        },
+    })
+    return null
+}
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
