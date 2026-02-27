@@ -16,6 +16,7 @@ export default function Dashboard({
     alerts,
     triggerEmergencyOptions,
     simulationActive,
+    stopSimulation,
     simulationSpeed,
     setSimulationSpeed,
     userLocation,
@@ -28,16 +29,22 @@ export default function Dashboard({
     const handleStart = () => {
         if (useGPS && userLocation) {
             startSimulation(selectedCase.type, userLocation[0], userLocation[1])
-        } else {
+        } else if (!useGPS) {
             startSimulation(selectedCase.type, selectedCase.lat, selectedCase.lon)
         }
     }
 
     const handleGPSToggle = () => {
-        if (!useGPS && !userLocation) {
-            onGetGPS()
+        if (!useGPS) {
+            if (!userLocation) {
+                onGetGPS()
+                // Don't set useGPS to true immediately; wait for user to click My GPS again or check in setUseGPS
+            } else {
+                setUseGPS(true)
+            }
+        } else {
+            setUseGPS(false)
         }
-        setUseGPS(v => !v)
     }
 
     return (
@@ -153,12 +160,23 @@ export default function Dashboard({
             <div className="flex flex-col gap-2">
                 <button
                     onClick={handleStart}
-                    disabled={loading || (useGPS && !userLocation)}
+                    disabled={loading || (useGPS && !userLocation) || simulationActive}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-all shadow-lg shadow-red-900/30"
                 >
                     <Play size={15} />
-                    {loading ? 'Calculating Route…' : useGPS && userLocation ? `Dispatch from GPS` : 'Dispatch Ambulance'}
+                    {loading ? 'Calculating Route…' : simulationActive ? 'Ambulance in Transit' : useGPS && userLocation ? `Dispatch from GPS` : 'Dispatch Ambulance'}
                 </button>
+
+                {simulationActive && (
+                    <button
+                        onClick={stopSimulation}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-slate-100 hover:bg-white text-slate-900 font-bold text-sm transition-all shadow-lg"
+                    >
+                        <StopCircle size={15} />
+                        Stop Simulation
+                    </button>
+                )}
+
                 <button
                     onClick={triggerEmergencyOptions}
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-all border border-slate-600"

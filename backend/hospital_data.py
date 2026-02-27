@@ -130,7 +130,7 @@ def get_hospitals():
             "icu_beds_available": 10, "specialization": "Government Hospital",
             "capabilities": ["Trauma", "General", "ICU"]
         },
-        # ── Maradu / Edapally ─────────────────────────────────────────────────
+        # ── Angamaly / North Ernakulam ──────────────────────────────────────────
         {
             "id": 16,
             "name": "Apollo Adlux Hospital – Angamaly",
@@ -164,9 +164,22 @@ def filter_hospitals(hospitals, case_type):
     for h in hospitals:
         if h["icu_beds_available"] <= 0:
             continue
-        if case_type == "trauma" and not h["trauma_capability"]:
+        
+        # Check specific capabilities
+        hospital_caps = [c.lower() for c in h.get("capabilities", [])]
+        
+        if case_type == "trauma" and not h.get("trauma_capability", "Trauma" in h.get("capabilities", [])):
             continue
-        if case_type == "cardiac" and not h["cardiac_capability"]:
+        if case_type == "cardiac" and not h.get("cardiac_capability", "Cardiac" in h.get("capabilities", [])):
             continue
+            
+        # Handle stroke, burns, etc. via capabilities list
+        if case_type in ["stroke", "neuro"] and "neuro" not in hospital_caps:
+            continue
+        if case_type == "burns" and "burns" not in hospital_caps:
+            continue
+        if case_type == "pediatric" and "pediatric" not in hospital_caps:
+            continue
+            
         valid_hospitals.append(h)
     return valid_hospitals

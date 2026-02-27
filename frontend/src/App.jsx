@@ -3,7 +3,7 @@ import axios from 'axios'
 import MapComponent from './components/MapComponent'
 import Dashboard from './components/Dashboard'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = '/api'
 
 function App() {
     const [graphLoaded, setGraphLoaded] = useState(false)
@@ -56,10 +56,15 @@ function App() {
         fetchAllHospitals()
         fetchOsmSignals()
 
-        // Poll sim signals every 2s
-        const signalInterval = setInterval(fetchSignals, 2000)
-        return () => clearInterval(signalInterval)
-    }, [])
+        // Poll sim signals only when graph is loaded
+        let signalInterval;
+        if (graphLoaded) {
+            signalInterval = setInterval(fetchSignals, 2000)
+        }
+        return () => {
+            if (signalInterval) clearInterval(signalInterval)
+        }
+    }, [graphLoaded])
 
     const fetchSignals = async () => {
         try {
@@ -146,6 +151,15 @@ function App() {
         })
     }
 
+    const stopSimulation = () => {
+        if (simIntervalRef.current) {
+            clearInterval(simIntervalRef.current)
+            simIntervalRef.current = null
+        }
+        setSimulationActive(false)
+        addAlert('Simulation stopped by operator.')
+    }
+
     useEffect(() => {
         if (simulationActive && simIntervalRef.current) {
             clearInterval(simIntervalRef.current)
@@ -188,6 +202,7 @@ function App() {
             <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-10 bg-slate-900 flex flex-col border-r border-slate-800">
                 <Dashboard
                     startSimulation={startSimulation}
+                    stopSimulation={stopSimulation}
                     loading={loading || !graphLoaded}
                     targetHospital={targetHospital}
                     travelTime={travelTime}

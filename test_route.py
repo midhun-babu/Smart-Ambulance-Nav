@@ -11,6 +11,7 @@ if backend_dir not in sys.path:
 try:
     from graph_loader import load_graph, get_nearest_node
     from routing import calculate_route_astar, calculate_route_dijkstra
+    from traffic import randomize_traffic
 except ImportError as e:
     print(f"Error importing backend modules: {e}")
     print(f"Python path: {sys.path}")
@@ -21,6 +22,8 @@ def test():
     print("Loading graph (Kochi region)...")
     try:
         G, sigs = load_graph()
+        # vary speeds once to exercise the new attributes
+        randomize_traffic(G)
     except Exception as e:
         print(f"Critical error loading graph: {e}")
         traceback.print_exc()
