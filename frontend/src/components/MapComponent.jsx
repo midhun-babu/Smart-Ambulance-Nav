@@ -175,6 +175,9 @@ export default function MapComponent({
     targetHospital,
     userLocation,
     center,
+    isPickingLocation,
+    pickedLocation,
+    setPickedLocation,
 }) {
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -207,6 +210,31 @@ export default function MapComponent({
 
                 {/* Follow ambulance during simulation */}
                 {ambulancePos && <MapFollower position={ambulancePos} />}
+
+                {/* Geofence area indicator around ambulance (300m) */}
+                {ambulancePos && (
+                    <Circle
+                        center={ambulancePos}
+                        radius={300}
+                        pathOptions={{
+                            color: '#10b981',
+                            fillColor: '#10b981',
+                            fillOpacity: 0.1,
+                            weight: 2,
+                            dashArray: '5, 10'
+                        }}
+                    />
+                )}
+
+                {/* Map events for picking location */}
+                <MapEvents isPickingLocation={isPickingLocation} setPickedLocation={setPickedLocation} />
+
+                {/* Picked location marker */}
+                {pickedLocation && (
+                    <Marker position={pickedLocation}>
+                        <Popup>Emergency Dispatch Origin</Popup>
+                    </Marker>
+                )}
 
                 {/* Route polyline */}
                 {route && route.length > 1 && (

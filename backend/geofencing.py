@@ -19,7 +19,8 @@ def check_geofence(current_lat, current_lon, signals, radius_m=300):
     preempted_trigger = False
     for s in signals:
         dist = get_distance(current_lat, current_lon, s["lat"], s["lon"])
-        if dist < radius_m: # Default 300m radius geofence
+        if dist < radius_m: 
+            # Default 300m radius geofence
             # Trigger preemption only if not already preempted
             if s["state"] != "PREEMPTED_GREEN":
                 if trigger_preemption(s):
