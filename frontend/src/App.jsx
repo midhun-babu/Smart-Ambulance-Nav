@@ -9,7 +9,7 @@ function App() {
     const [graphLoaded, setGraphLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
 
-    
+
     const [signals, setSignals] = useState([])
     const [osmSignals, setOsmSignals] = useState([])
     const [allHospitals, setAllHospitals] = useState([])
@@ -31,6 +31,12 @@ function App() {
     // Manual Picking state
     const [isPickingLocation, setIsPickingLocation] = useState(false)
     const [pickedLocation, setPickedLocation] = useState(null)
+
+    // Live Database State
+    const [ambulances, setAmbulances] = useState([])
+    const [requests, setRequests] = useState([])
+    const [currentRequestId, setCurrentRequestId] = useState(null)
+    const [currentAmbulance, setCurrentAmbulance] = useState(null)
 
     const simIntervalRef = useRef(null)
     const routeRef = useRef([])
@@ -56,13 +62,19 @@ function App() {
         fetchAllHospitals()
         fetchOsmSignals()
 
-        
+
         let signalInterval;
+        let dataInterval;
         if (graphLoaded) {
             signalInterval = setInterval(fetchSignals, 2000)
+            dataInterval = setInterval(() => {
+                fetchAmbulances()
+                fetchRequests()
+            }, 3000)
         }
         return () => {
             if (signalInterval) clearInterval(signalInterval)
+            if (dataInterval) clearInterval(dataInterval)
         }
     }, [graphLoaded])
 
@@ -94,6 +106,24 @@ function App() {
         }
     }
 
+    const fetchAmbulances = async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/ambulances`)
+            if (res.data.ambulances) setAmbulances(res.data.ambulances)
+        } catch (e) {
+            console.error('Failed to fetch ambulances')
+        }
+    }
+
+    const fetchRequests = async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/requests`)
+            if (res.data.requests) setRequests(res.data.requests)
+        } catch (e) {
+            console.error('Failed to fetch requests')
+        }
+    }
+
     const startSimulation = async (caseType, startLat, startLon) => {
         setLoading(true)
         try {
@@ -110,8 +140,12 @@ function App() {
             setAmbulancePos([startLat, startLon])
             setRouteIndex(0)
             setSimulationActive(true)
-            setPickedLocation(null) 
-            setIsPickingLocation(false) 
+            setPickedLocation(null)
+            setIsPickingLocation(false)
+
+            setCurrentRequestId(res.data.request_id)
+            setCurrentAmbulance(res.data.ambulance)
+
             addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} min.`)
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
@@ -137,6 +171,7 @@ function App() {
             const nextPos = currentRoute[prev + 1]
             setAmbulancePos(nextPos)
 
+            // Update Backend Sim
             axios.post(`${API_BASE}/simulate/step`, {
                 current_lat: nextPos[0],
                 current_lon: nextPos[1],
@@ -148,6 +183,21 @@ function App() {
                     addAlert('Green Signal Preempted Ahead! Clean Window active.')
                 }
             }).catch(e => console.error('Sim step failed', e))
+
+            // Sync with DB
+            if (currentAmbulance && (prev % 10 === 0)) {
+                axios.post(`${API_BASE}/ambulance/update?vehicle_number=${currentAmbulance.vehicle_number}&lat=${nextPos[0]}&lon=${nextPos[1]}`)
+            }
+
+            if (prev >= currentRoute.length - 2) {
+                // Completion logic
+                if (currentRequestId) {
+                    axios.post(`${API_BASE}/request/update/${currentRequestId}?status=COMPLETED`)
+                }
+                if (currentAmbulance) {
+                    axios.post(`${API_BASE}/ambulance/update?vehicle_number=${currentAmbulance.vehicle_number}&lat=${nextPos[0]}&lon=${nextPos[1]}&status=AVAILABLE`)
+                }
+            }
 
             return prev + 1
         })
@@ -220,6 +270,8 @@ function App() {
                     userLocation={userLocation}
                     onGetGPS={handleGetGPS}
                     gpsLoading={gpsLoading}
+                    requests={requests}
+                    ambulances={ambulances}
                 />
             </div>
 

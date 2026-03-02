@@ -1,3 +1,6 @@
+from models import Hospital as HospitalModel
+from sqlalchemy.orm import Session
+
 def get_hospitals():
     """
     Comprehensive list of hospitals in Ernakulam district, Kerala.
@@ -157,20 +160,52 @@ def get_hospitals():
         },
     ]
 
+def seed_hospitals(db: Session):
+    """Seed the database with initial hospital data if empty."""
+    if db.query(HospitalModel).count() == 0:
+        hospitals_data = get_hospitals()
+        for h in hospitals_data:
+            db_h = HospitalModel(
+                name=h["name"],
+                lat=h["lat"],
+                lon=h["lon"],
+                trauma_capability=h["trauma_capability"],
+                cardiac_capability=h["cardiac_capability"],
+                general_capability=h["general_capability"],
+                icu_beds_available=h["icu_beds_available"],
+                specialization=h["specialization"],
+                capabilities=h["capabilities"]
+            )
+            db.add(db_h)
+        db.commit()
+        print(f"Seeded {len(hospitals_data)} hospitals into the database.")
 
-def filter_hospitals(hospitals, case_type):
+def filter_hospitals(hospitals_list, case_type):
+    # hospitals_list can be a list of dicts or Hospital model instances
     valid_hospitals = []
     case_type = case_type.lower()
-    for h in hospitals:
-        if h["icu_beds_available"] <= 0:
+    for h in hospitals_list:
+        # Normalize access (dict vs object)
+        if hasattr(h, 'icu_beds_available'):
+             icu = h.icu_beds_available
+             caps = h.capabilities
+             trauma = h.trauma_capability
+             cardiac = h.cardiac_capability
+        else:
+             icu = h.get("icu_beds_available", 0)
+             caps = h.get("capabilities", [])
+             trauma = h.get("trauma_capability", False)
+             cardiac = h.get("cardiac_capability", False)
+
+        if icu <= 0:
             continue
         
         # Check specific capabilities
-        hospital_caps = [c.lower() for c in h.get("capabilities", [])]
+        hospital_caps = [c.lower() for c in (caps or [])]
         
-        if case_type == "trauma" and not h.get("trauma_capability", "Trauma" in h.get("capabilities", [])):
+        if case_type == "trauma" and not (trauma or "trauma" in hospital_caps):
             continue
-        if case_type == "cardiac" and not h.get("cardiac_capability", "Cardiac" in h.get("capabilities", [])):
+        if case_type == "cardiac" and not (cardiac or "cardiac" in hospital_caps):
             continue
             
         # Handle stroke, burns, etc. via capabilities list

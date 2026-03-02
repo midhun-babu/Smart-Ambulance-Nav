@@ -330,13 +330,40 @@ export default function MapComponent({
                     )
                 })}
 
-                {/* ── Ambulance marker ─── */}
+                {/* ── Ambulance markers (All from DB) ─── */}
+                {ambulances && ambulances.map((amb) => {
+                    // If this ambulance is the one currently being simulated, 
+                    // we might want to skip it here and use ambulancePos for smoother animation
+                    // but for simplicity, if it's not the active one, show it.
+                    const isSimulated = ambulancePos &&
+                        Math.abs(amb.current_lat - ambulancePos[0]) < 0.0001 &&
+                        Math.abs(amb.current_lon - ambulancePos[1]) < 0.0001;
+
+                    if (isSimulated) return null;
+
+                    return (
+                        <Marker
+                            key={`db-amb-${amb.id}`}
+                            position={[amb.current_lat, amb.current_lon]}
+                            icon={ambulanceIcon}
+                        >
+                            <Popup>
+                                <div>
+                                    <div style={{ fontWeight: 700 }}>🚑 {amb.vehicle_number}</div>
+                                    <div style={{ color: '#94a3b8', fontSize: 11 }}>Status: <span style={{ color: amb.status === 'AVAILABLE' ? '#4ade80' : '#f87171' }}>{amb.status}</span></div>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    )
+                })}
+
+                {/* ── Active Session Ambulance (for smooth animation) ─── */}
                 {ambulancePos && (
                     <Marker position={ambulancePos} icon={ambulanceIcon}>
                         <Popup>
                             <div>
-                                <div style={{ fontWeight: 700 }}>🚑 Ambulance</div>
-                                <div style={{ color: '#94a3b8', fontSize: 11 }}>In transit</div>
+                                <div style={{ fontWeight: 700 }}>🚑 Active Unit</div>
+                                <div style={{ color: '#94a3b8', fontSize: 11 }}>Responding to Emergency</div>
                             </div>
                         </Popup>
                     </Marker>
