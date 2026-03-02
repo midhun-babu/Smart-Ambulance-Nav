@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader } from 'lucide-react'
 
 const CASE_PRESETS = [
-    { label: 'Cardiac Arrest', type: 'cardiac', emoji: '❤️', lat: 9.9816, lon: 76.2999 },
-    { label: 'Trauma', type: 'trauma', emoji: '🩹', lat: 9.9750, lon: 76.2800 },
-    { label: 'Stroke', type: 'stroke', emoji: '🧠', lat: 9.9900, lon: 76.3100 },
-    { label: 'Burns', type: 'burns', emoji: '🔥', lat: 9.9680, lon: 76.3050 },
+    { label: 'Cardiac Arrest', type: 'cardiac', lat: 9.9816, lon: 76.2999 },
+    { label: 'Trauma', type: 'trauma',  lat: 9.9750, lon: 76.2800 },
+    { label: 'Stroke', type: 'stroke', lat: 9.9900, lon: 76.3100 },
+    { label: 'Burns', type: 'burns', lat: 9.9680, lon: 76.3050 },
 ]
 
 export default function Dashboard({

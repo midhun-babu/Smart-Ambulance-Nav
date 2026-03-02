@@ -2,7 +2,7 @@ import math
 from signal_model import trigger_preemption
 
 def get_distance(lat1, lon1, lat2, lon2):
-    """Distance in meters between two lat/lon points using Haversine."""
+    #Distance in meters between two lat/lon points using Haversine.
     R = 6371e3
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -15,7 +15,7 @@ def get_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 def check_geofence(current_lat, current_lon, signals, radius_m=300):
-    """Geofencing check: trigger preemption if signal < radius_m away."""
+    #Geofencing check: trigger preemption if signal < radius_m away.
     preempted_trigger = False
     for s in signals:
         dist = get_distance(current_lat, current_lon, s["lat"], s["lon"])
