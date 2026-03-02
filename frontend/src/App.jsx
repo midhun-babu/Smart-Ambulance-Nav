@@ -9,11 +9,9 @@ function App() {
     const [graphLoaded, setGraphLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
 
-    // Simulation signals (from backend sim state)
+    
     const [signals, setSignals] = useState([])
-    // Real OSM signals (static, loaded once)
     const [osmSignals, setOsmSignals] = useState([])
-    // All hospitals (static, loaded once)
     const [allHospitals, setAllHospitals] = useState([])
 
     // Ambulance state
@@ -30,8 +28,11 @@ function App() {
     const [userLocation, setUserLocation] = useState(null)
     const [gpsLoading, setGpsLoading] = useState(false)
 
+    // Manual Picking state
+    const [isPickingLocation, setIsPickingLocation] = useState(false)
+    const [pickedLocation, setPickedLocation] = useState(null)
+
     const simIntervalRef = useRef(null)
-    // Store route in a ref so setInterval can access the latest value
     const routeRef = useRef([])
     useEffect(() => { routeRef.current = route }, [route])
 
@@ -52,11 +53,10 @@ function App() {
         }
         checkGraph()
 
-        // Fetch static data once
         fetchAllHospitals()
         fetchOsmSignals()
 
-        // Poll sim signals only when graph is loaded
+        
         let signalInterval;
         if (graphLoaded) {
             signalInterval = setInterval(fetchSignals, 2000)
@@ -110,6 +110,8 @@ function App() {
             setAmbulancePos([startLat, startLon])
             setRouteIndex(0)
             setSimulationActive(true)
+            setPickedLocation(null) 
+            setIsPickingLocation(false) 
             addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} min.`)
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
@@ -143,7 +145,7 @@ function App() {
             }).then(res => {
                 setSignals(res.data.signals)
                 if (res.data.preemption_active) {
-                    addAlert('🟢 Signal Preempted Ahead! Clean Window active.')
+                    addAlert('Green Signal Preempted Ahead! Clean Window active.')
                 }
             }).catch(e => console.error('Sim step failed', e))
 
@@ -173,7 +175,7 @@ function App() {
 
     const handleGetGPS = () => {
         if (!navigator.geolocation) {
-            addAlert('❌ Geolocation is not supported by your browser.')
+            addAlert(' Geolocation is not supported by your browser.')
             return
         }
         setGpsLoading(true)
@@ -182,11 +184,11 @@ function App() {
                 const { latitude, longitude } = pos.coords
                 setUserLocation([latitude, longitude])
                 setGpsLoading(false)
-                addAlert(`📍 GPS location acquired: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`)
+                addAlert(`GPS location acquired: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`)
             },
             (err) => {
                 setGpsLoading(false)
-                addAlert(`❌ GPS Error: ${err.message}`)
+                addAlert(`GPS Error: ${err.message}`)
             },
             { enableHighAccuracy: true, timeout: 10000 }
         )
@@ -198,11 +200,15 @@ function App() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100">
-            {/* Sidebar Dashboard */}
+            {/* Dashboard Area */}
             <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-10 bg-slate-900 flex flex-col border-r border-slate-800">
                 <Dashboard
                     startSimulation={startSimulation}
                     stopSimulation={stopSimulation}
+                    isPickingLocation={isPickingLocation}
+                    setIsPickingLocation={setIsPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
                     loading={loading || !graphLoaded}
                     targetHospital={targetHospital}
                     travelTime={travelTime}
@@ -235,6 +241,9 @@ function App() {
                     targetHospital={targetHospital}
                     userLocation={userLocation}
                     center={[9.9816, 76.2999]}
+                    isPickingLocation={isPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
                 />
             </div>
         </div>

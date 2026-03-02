@@ -14,7 +14,7 @@ def heuristic(u, v, G):
             
         # Distance in km roughly
         dist = math.hypot(v_y - u_y, v_x - u_x) * 111
-        # Assuming max speed 80 km/h, min time in seconds:
+        # Assuming max speed 80 km/h, min time in secondsī:
         return (dist / 80) * 3600
     except Exception:
         return 0
