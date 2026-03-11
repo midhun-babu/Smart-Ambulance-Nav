@@ -4,9 +4,9 @@ import L from 'leaflet'
 
 // Custom icons
 const ambulaceIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3203/3203007.png',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconUrl: 'https://img.icons8.com/color/48/ambulance.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
 })
 
 const hospitalIcon = new L.Icon({
@@ -16,26 +16,53 @@ const hospitalIcon = new L.Icon({
 })
 
 const signalIcons = {
-    "RED": new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814890.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+    "RED": new L.divIcon({
+        className: 'custom-signal-icon',
+        html: `
+            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
+                <div class="w-3 h-3 rounded-full mb-1 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] border border-red-400/50"></div>
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full bg-slate-800"></div>
+            </div>
+        `,
+        iconSize: [24, 48],
+        iconAnchor: [12, 24]
     }),
-    "GREEN": new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814868.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+    "GREEN": new L.divIcon({
+        className: 'custom-signal-icon',
+        html: `
+            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] border border-emerald-400/50"></div>
+            </div>
+        `,
+        iconSize: [24, 48],
+        iconAnchor: [12, 24]
     }),
-    "YELLOW": new L.Icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/4814/4814881.png',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+    "YELLOW": new L.divIcon({
+        className: 'custom-signal-icon',
+        html: `
+            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full mb-1 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)] border border-yellow-400/50"></div>
+                <div class="w-3 h-3 rounded-full bg-slate-800"></div>
+            </div>
+        `,
+        iconSize: [24, 48],
+        iconAnchor: [12, 24]
     }),
     "PREEMPTED_GREEN": new L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div class="w-8 h-8 rounded-full bg-emerald-400/20 ring-4 ring-emerald-400 animate-pulse flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.8)]"><div class="w-3 h-3 bg-emerald-300 rounded-full"></div></div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        className: 'custom-signal-icon',
+        html: `
+            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.4)] scale-110">
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
+                <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,1)] border-2 border-white/30"></div>
+            </div>
+        `,
+        iconSize: [28, 56],
+        iconAnchor: [14, 28]
     })
 }
 
@@ -94,7 +121,7 @@ const MapComponent = ({ ambulancePos, route, signals, targetHospital, center }) 
                         </div>
                     </Popup>
                 </Marker>
-            )}
+            ))}
 
             {/* Calculated Route - Glowing Blue */}
             {route && route.length > 0 && (
