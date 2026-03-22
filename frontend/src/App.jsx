@@ -1,18 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import MapComponent from './components/MapComponent'
 import Dashboard from './components/Dashboard'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import ProtectedRoute from './components/ProtectedRoute'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { useGps } from './hooks/useGps'
+import * as ambulanceService from './services/ambulanceService'
 
-const API_BASE = 'http://localhost:8000'
-
-function App() {
+function MainApp() {
+    const { user, logout } = useAuth();
     const [graphLoaded, setGraphLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
+
     const [signals, setSignals] = useState([])
+    const [osmSignals, setOsmSignals] = useState([])
+    const [allHospitals, setAllHospitals] = useState([])
 
     // Ambulance state
     const [simulationActive, setSimulationActive] = useState(false)
-    const [simulationSpeed, setSimulationSpeed] = useState(1); // 1x, 2x, 5x, 10x
+    const [simulationSpeed, setSimulationSpeed] = useState(1)
     const [ambulancePos, setAmbulancePos] = useState(null)
     const [route, setRoute] = useState([])
     const [routeIndex, setRouteIndex] = useState(0)
@@ -20,98 +28,136 @@ function App() {
     const [travelTime, setTravelTime] = useState(0)
     const [alerts, setAlerts] = useState([])
 
+    const addAlert = (msg) => {
+        setAlerts(prev => [msg, ...prev].slice(0, 8))
+    }
+
+    // GPS state logic extracted to hook
+    const { userLocation, setUserLocation, gpsLoading, handleGetGps } = useGps(addAlert)
+
+    // Manual Picking state
+    const [isPickingLocation, setIsPickingLocation] = useState(false)
+    const [pickedLocation, setPickedLocation] = useState(null)
+
     const simIntervalRef = useRef(null)
+    const routeRef = useRef([])
+    
+    useEffect(() => { routeRef.current = route }, [route])
 
     useEffect(() => {
-        // Check if backend graph is loaded
         const checkGraph = async () => {
             try {
-                const res = await axios.get(`${API_BASE}/graph/load`)
+                const res = await ambulanceService.getGraphStatus()
                 if (res.data.status === 'loaded') {
                     setGraphLoaded(true)
                     fetchSignals()
                 }
             } catch (e) {
-                console.error("Graph not loaded yet, backend might be starting or loading data.")
+                console.error('Graph not loaded yet, retrying in 5s...')
                 setTimeout(checkGraph, 5000)
             } finally {
                 setLoading(false)
             }
         }
         checkGraph()
+        fetchAllHospitals()
+        fetchOsmSignals()
 
-        // Independent interval to fetch signals for realistic traffic light updates even if ambulance is not moving
-        const signalInterval = setInterval(fetchSignals, 2000)
-        return () => clearInterval(signalInterval)
-    }, [])
+        let signalInterval;
+        if (graphLoaded) {
+            signalInterval = setInterval(fetchSignals, 2000)
+        }
+        return () => {
+            if (signalInterval) clearInterval(signalInterval)
+        }
+    }, [graphLoaded])
 
     const fetchSignals = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/signals/status`)
+            const res = await ambulanceService.getSignalsStatus()
             if (res.data.signals) setSignals(res.data.signals)
         } catch (e) {
-            console.error("Failed to fetch signals")
+            console.error('Failed to fetch signals')
+        }
+    }
+
+    const fetchAllHospitals = async () => {
+        try {
+            const res = await ambulanceService.getHospitals()
+            if (res.data.hospitals) setAllHospitals(res.data.hospitals)
+        } catch (e) {
+            console.error('Failed to fetch hospitals', e)
+        }
+    }
+
+    const fetchOsmSignals = async () => {
+        try {
+            const res = await ambulanceService.getOsmSignals()
+            if (res.data.signals) setOsmSignals(res.data.signals)
+        } catch (e) {
+            console.error('Failed to fetch OSM signals', e)
         }
     }
 
     const startSimulation = async (caseType, startLat, startLon) => {
         setLoading(true)
         try {
-            const res = await axios.post(`${API_BASE}/route`, {
-                start_lat: startLat,
-                start_lon: startLon,
-                case_type: caseType
-            })
-
+            const res = await ambulanceService.getRoute(startLat, startLon, caseType)
             setTargetHospital(res.data.hospital)
             setRoute(res.data.route)
+            routeRef.current = res.data.route
             setTravelTime(res.data.estimated_time_minutes)
             setAmbulancePos([startLat, startLon])
             setRouteIndex(0)
             setSimulationActive(true)
-            addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} mins.`)
+            setPickedLocation(null)
+            setIsPickingLocation(false)
+            addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} min.`)
 
-            // Start moving
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
             simIntervalRef.current = setInterval(simulateMovement, 1000 / simulationSpeed)
         } catch (e) {
-            addAlert("Routing failed! Using Failsafe Mode - Nearest General Hospital.")
-            console.error("Routing error", e)
+            addAlert('Routing failed! Using Failsafe Mode.')
+            console.error('Routing error', e)
         } finally {
             setLoading(false)
         }
     }
 
-    const simulateMovement = async () => {
+    const simulateMovement = () => {
         setRouteIndex(prev => {
-            if (prev >= route.length - 1) {
+            const currentRoute = routeRef.current
+            if (prev >= currentRoute.length - 1) {
                 clearInterval(simIntervalRef.current)
                 setSimulationActive(false)
-                addAlert("Ambulance arrived at the destination.")
+                addAlert('Ambulance arrived at the destination. 🏥')
                 return prev
             }
-
-            const nextPos = route[prev + 1]
+            const nextPos = currentRoute[prev + 1]
             setAmbulancePos(nextPos)
-
-            // Call backend to process simulation step
-            axios.post(`${API_BASE}/simulate/step`, {
-                current_lat: nextPos[0],
-                current_lon: nextPos[1],
-                route: route,
-                speed_kmh: 60
-            }).then(res => {
-                setSignals(res.data.signals)
-                if (res.data.preemption_active) {
-                    addAlert("Signal Preempted Ahead! Clean Window active.")
-                }
-            }).catch(e => console.error("Sim step failed", e))
-
+            
+            ambulanceService.postSimulationStep(nextPos[0], nextPos[1], currentRoute)
+                .then(res => {
+                    setSignals(res.data.signals)
+                    if (res.data.preemption_active) {
+                        addAlert('Green Signal Preempted Ahead!')
+                    }
+                })
+                .catch(e => console.error('Sim step failed', e))
+                
             return prev + 1
         })
     }
 
-    // Effect to update interval when speed changes
+    const stopSimulation = () => {
+        if (simIntervalRef.current) {
+            clearInterval(simIntervalRef.current)
+            simIntervalRef.current = null
+        }
+        setSimulationActive(false)
+        addAlert('Simulation stopped by operator.')
+    }
+
     useEffect(() => {
         if (simulationActive && simIntervalRef.current) {
             clearInterval(simIntervalRef.current)
@@ -119,52 +165,80 @@ function App() {
         }
     }, [simulationSpeed, simulationActive])
 
-    const addAlert = (msg) => {
-        setAlerts(prev => [msg, ...prev].slice(0, 5))
-    }
-
-    const triggerEmergencyOptions = () => {
-        // Manual trigger failsafe UI
-        addAlert("Failsafe Activated: Switching to manual override mode.")
-    }
-
     return (
-        <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100">
-            {/* Sidebar Dashboard */}
-            <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-10 bg-slate-900 flex flex-col border-r border-slate-800">
+        <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100 font-sans">
+            {/* Dashboard Area */}
+            <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-20 bg-slate-900 flex flex-col border-r border-slate-800">
+                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+                    <div>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Session</p>
+                        <p className="text-sm font-bold text-blue-400">{user?.name} ({user?.role})</p>
+                    </div>
+                    <button
+                        onClick={logout}
+                        className="text-xs bg-slate-800 hover:bg-red-600/20 hover:text-red-400 px-3 py-1.5 rounded-lg border border-slate-700 transition-all font-bold"
+                    >
+                        Sign Out
+                    </button>
+                </div>
                 <Dashboard
                     startSimulation={startSimulation}
-                    loading={loading || !graphLoaded}
+                    stopSimulation={stopSimulation}
+                    isPickingLocation={isPickingLocation}
+                    setIsPickingLocation={setIsPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
+                    loading={loading}
                     targetHospital={targetHospital}
                     travelTime={travelTime}
                     alerts={alerts}
-                    triggerEmergencyOptions={triggerEmergencyOptions}
+                    triggerEmergencyOptions={() => addAlert('Emergency options triggered.')}
                     simulationActive={simulationActive}
                     simulationSpeed={simulationSpeed}
                     setSimulationSpeed={setSimulationSpeed}
+                    userLocation={userLocation}
+                    onGetGPS={handleGetGps}
+                    gpsLoading={gpsLoading}
                 />
             </div>
 
             {/* Map Area */}
-            <div className="flex-1 h-full relative bg-slate-950">
-                {!graphLoaded && !loading && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 z-20 flex items-center justify-center pointer-events-none">
-                        <div className="bg-white p-6 rounded-lg text-xl font-bold text-gray-800 shadow-lg">
-                            Backend is loading graph data. Please wait...
-                        </div>
-                    </div>
-                )}
+            <div className="flex-1 h-full relative">
                 <MapComponent
                     ambulancePos={ambulancePos}
                     route={route}
                     signals={signals}
+                    osmSignals={osmSignals}
+                    allHospitals={allHospitals}
                     targetHospital={targetHospital}
-                    // Default Kochi coordinates
+                    userLocation={userLocation}
                     center={[9.9816, 76.2999]}
+                    isPickingLocation={isPickingLocation}
+                    pickedLocation={pickedLocation}
+                    setPickedLocation={setPickedLocation}
                 />
             </div>
         </div>
-    )
+    );
 }
 
-export default App
+function App() {
+    return (
+        <AuthProvider>
+            <Router>
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                            <MainApp />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/" element={<Navigate to="/dashboard" />} />
+                </Routes>
+            </Router>
+        </AuthProvider>
+    );
+}
+
+export default App;

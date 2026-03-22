@@ -1,13 +1,18 @@
-const API = import.meta.env.VITE_API_URL;
+import axios from 'axios';
 
-export const fetchRoute = async (data) => {
-  const response = await fetch(`${API}/route`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  });
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-  return response.json();
-};
+const api = axios.create({
+    baseURL: API_BASE,
+});
+
+// Add a request interceptor to include the auth token if it exists
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+export default api;

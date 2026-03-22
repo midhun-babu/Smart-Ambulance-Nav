@@ -55,3 +55,5 @@ This project is a full-stack web application that simulates an Intelligent Ambul
 - **Start Simulation**: Calculates the optimal route via A* routing on the OSM road graph and begins ambulance movement.
 - **Traffic Signals**: ~20 randomly selected intersections are simulated as traffic lights. They cycle normally until the ambulance gets within 300m, triggering a **PREEMPTED_GREEN** state for a clean window.
 - **Driver Alerts**: UI-banners notify the operator when a signal is preempted or if failsafe mode is activated.
+
+-Have to implement LLM TO MAKE SURE EADY TRANSPORT 

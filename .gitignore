@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
@@ -27,3 +28,22 @@ yarn-error.log*
 # Project specific
 backend/cache/
 frontend/dist/
+=======
+# ===== Python =====
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+
+# ===== Environment files =====
+.env
+
+# ===== OS / Editor =====
+.vscode/
+.DS_Store
+Thumbs.db   
+>>>>>>> 3496421ad133aa4f3479135b423e57578b63cc9d
