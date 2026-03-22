@@ -15,7 +15,7 @@ from app.services.simulation import simulate_step
 
 # database & auth
 from app.db.session import get_database, ping_database
-from app.api.v1 import auth
+from app.api.v1 import auth, admin
 from datetime import datetime, timedelta
 
 # traffic utilities for demo
@@ -26,7 +26,6 @@ app = FastAPI(title="Intelligent Ambulance Routing")
 # Global state
 G = None
 signals = []
-hospitals = []
 
 class RouteRequest(BaseModel):
     start_lat: float
@@ -41,15 +40,39 @@ class SimulationStepRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global G, signals, hospitals
+    global G, signals
     print("Loading graph data for Kerala (Kochi region)...")
     G, signals = load_graph()
     
-    from app.services.hospital_data import get_hospitals
-    hospitals = get_hospitals()
-    print(f"Loaded {len(hospitals)} hospitals and {len(signals)} signals.")
     # Initialize DB connection
     await ping_database()
+    
+    db = get_database()
+    
+    # 1. Admin Init
+    from app.api.v1.auth import get_password_hash
+    admin_exists = await db.users.find_one({"email": "admin@gmail.com"})
+    if not admin_exists:
+        print("Creating default admin user...")
+        await db.users.insert_one({
+            "email": "admin@gmail.com",
+            "name": "System Admin",
+            "role": "admin",
+            "password_hash": get_password_hash("1234"),
+            "is_approved": True,
+            "created_at": datetime.utcnow()
+        })
+        
+    # 2. Hospitals Init
+    from app.services.hospital_data import get_hospitals as get_default_hospitals
+    hospitals_count = await db.hospitals.count_documents({})
+    if hospitals_count == 0:
+        print("Initializing hospitals collection...")
+        defaults = get_default_hospitals()
+        if defaults:
+            await db.hospitals.insert_many(defaults)
+            
+    print(f"Loaded {hospitals_count if hospitals_count > 0 else len(get_default_hospitals())} hospitals and {len(signals)} signals.")
     yield
 
 app = FastAPI(title="Intelligent Ambulance Routing", lifespan=lifespan)
@@ -64,6 +87,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():
@@ -76,12 +100,24 @@ def get_graph_status():
     return {"status": "loaded", "nodes": len(G.nodes), "edges": len(G.edges)}
 
 @app.get("/hospitals")
-def get_all_hospitals():
+async def get_all_hospitals():
     """Return all hospitals in Ernakulam for map rendering."""
+    db = get_database()
+    cursor = db.hospitals.find({})
+    hospitals = await cursor.to_list(length=1000)
+    for h in hospitals:
+        h["id"] = str(h["_id"])
+        h.pop("_id", None)
     return {"hospitals": hospitals}
 
-@app.get("/ अस्पताल/filter")
-def get_filtered_hospitals(case_type: str):
+@app.get("/hospitals/filter")
+async def get_filtered_hospitals(case_type: str):
+    db = get_database()
+    cursor = db.hospitals.find({})
+    hospitals = await cursor.to_list(length=1000)
+    for h in hospitals:
+        h["id"] = str(h["_id"])
+        h.pop("_id", None)
     valid_hospitals = filter_hospitals(hospitals, case_type)
     return {"hospitals": valid_hospitals}
 
@@ -119,10 +155,17 @@ out body;
         raise HTTPException(status_code=503, detail=f"Overpass API error: {str(e)}")
 
 @app.post("/route")
-def get_route(req: RouteRequest):
+async def get_route(req: RouteRequest):
     global G
     if G is None:
         raise HTTPException(status_code=500, detail="Graph not loaded")
+    
+    db = get_database()
+    cursor = db.hospitals.find({})
+    hospitals = await cursor.to_list(length=1000)
+    for h in hospitals:
+        h["id"] = str(h["_id"])
+        h.pop("_id", None)
     
     # 1. Select Hospital based on capability
     valid_hospitals = filter_hospitals(hospitals, req.case_type)
@@ -210,8 +253,15 @@ def traffic_randomize():
 
 
 @app.post("/traffic/route")
-def traffic_for_route(req: RouteRequest):
+async def traffic_for_route(req: RouteRequest):
     """Return per-segment speeds for a requested route between start and hospital."""
+    db = get_database()
+    cursor = db.hospitals.find({})
+    hospitals = await cursor.to_list(length=1000)
+    for h in hospitals:
+        h["id"] = str(h["_id"])
+        h.pop("_id", None)
+
     # reuse /route logic to pick hospital and compute route nodes
     valid_hospitals = filter_hospitals(hospitals, req.case_type)
     if not valid_hospitals:

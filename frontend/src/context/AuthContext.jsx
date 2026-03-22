@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
         const { access_token, role } = res.data;
         localStorage.setItem('token', access_token);
         localStorage.setItem('role', role);
-        setUser({ email, role });
+        setUser({ id: res.data.id, email, role });
         return res.data;
     };
 
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
         const { access_token, role } = res.data;
         localStorage.setItem('token', access_token);
         localStorage.setItem('role', role);
-        setUser({ email: userData.email, role });
+        setUser({ id: res.data.id, email: userData.email, role });
         return res.data;
     };
 

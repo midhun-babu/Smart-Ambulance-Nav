@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+
 from fastapi import Depends, HTTPException, status, APIRouter
 from fastapi.security import OAuth2PasswordBearer
 from app.db.session import get_database
@@ -13,16 +13,18 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-it-in-product
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+import bcrypt
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password:
+        return False
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -65,26 +67,38 @@ def check_role(user: dict, allowed_roles: list):
     return True
 
 @router.post("/register", response_model=Token)
-async def register(user: UserCreate):
+async def register(user_data: dict): # Use dict to be flexible with optional hospitalName
     db = get_database()
+    email = user_data.get("email")
+    password = user_data.get("password")
+    name = user_data.get("name")
+    role = user_data.get("role")
+    hospital_name = user_data.get("hospitalName")
+    
     # Check if user exists
-    existing_user = await db.users.find_one({"email": user.email})
+    existing_user = await db.users.find_one({"email": email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    hashed_pass = get_password_hash(user.password)
+    # Only allow driver registration (admins are seeded, hospitals are managed by admin)
+    if role != "driver":
+        raise HTTPException(status_code=400, detail="Only driver registration is allowed.")
+    
+    hashed_pass = get_password_hash(password)
+    is_approved = False
     user_dict = {
-        "email": user.email,
-        "name": user.name,
-        "role": user.role,
+        "email": email,
+        "name": name,
+        "role": "driver",
         "password_hash": hashed_pass,
+        "is_approved": is_approved,
         "created_at": datetime.utcnow()
     }
     
-    await db.users.insert_one(user_dict)
+    user_id = await db.users.insert_one(user_dict)
     
-    access_token = create_access_token(data={"sub": user.email, "role": user.role})
-    return {"access_token": access_token, "token_type": "bearer", "role": user.role}
+    access_token = create_access_token(data={"sub": email, "role": role})
+    return {"access_token": access_token, "token_type": "bearer", "role": role, "id": str(user_id.inserted_id)}
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
@@ -96,13 +110,20 @@ async def login(credentials: UserLogin):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    if user.get("role") != "admin" and not user.get("is_approved", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration pending approval from an admin.",
+        )
     
     access_token = create_access_token(data={"sub": user["email"], "role": user["role"]})
-    return {"access_token": access_token, "token_type": "bearer", "role": user["role"]}
+    return {"access_token": access_token, "token_type": "bearer", "role": user["role"], "id": str(user["_id"])}
 
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return {
+        "id": str(current_user["_id"]),
         "email": current_user["email"],
         "name": current_user["name"],
         "role": current_user["role"]

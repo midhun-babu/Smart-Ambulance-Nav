@@ -5,9 +5,11 @@ import Dashboard from './components/Dashboard'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminDashboard from './pages/AdminDashboard'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { useGps } from './hooks/useGps'
 import * as ambulanceService from './services/ambulanceService'
+import { LogOut, AlertCircle } from 'lucide-react'
 
 function MainApp() {
     const { user, logout } = useAuth();
@@ -33,7 +35,10 @@ function MainApp() {
     }
 
     // GPS state logic extracted to hook
-    const { userLocation, setUserLocation, gpsLoading, handleGetGps } = useGps(addAlert)
+    const { userLocation, setUserLocation, gpsLoading, handleGetGps, startGpsTracking, stopGpsTracking } = useGps(addAlert)
+
+    // Live tracking state
+    const [liveTrackingActive, setLiveTrackingActive] = useState(false)
 
     // Manual Picking state
     const [isPickingLocation, setIsPickingLocation] = useState(false)
@@ -110,12 +115,78 @@ function MainApp() {
             setAmbulancePos([startLat, startLon])
             setRouteIndex(0)
             setSimulationActive(true)
+            setLiveTrackingActive(false)
             setPickedLocation(null)
             setIsPickingLocation(false)
+            stopGpsTracking()
             addAlert(`Route calculated to ${res.data.hospital.name}. ETA: ${res.data.estimated_time_minutes} min.`)
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
             simIntervalRef.current = setInterval(simulateMovement, 1000 / simulationSpeed)
+        } catch (e) {
+            addAlert('Routing failed! Using Failsafe Mode.')
+            console.error('Routing error', e)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const startLiveTracking = async (caseType, startLat, startLon) => {
+        setLoading(true)
+        try {
+            const res = await ambulanceService.getRoute(startLat, startLon, caseType)
+            const hospitalData = res.data.hospital
+            const initialRoute = res.data.route
+            
+            setTargetHospital(hospitalData)
+            setRoute(initialRoute)
+            routeRef.current = initialRoute
+            setTravelTime(res.data.estimated_time_minutes)
+            setAmbulancePos([startLat, startLon])
+            setRouteIndex(0)
+            setLiveTrackingActive(true)
+            setSimulationActive(false)
+            setPickedLocation(null)
+            setIsPickingLocation(false)
+            addAlert(`✅ Route found to ${hospitalData.name}. ETA: ${res.data.estimated_time_minutes} min. Live GPS active.`)
+
+            if (simIntervalRef.current) clearInterval(simIntervalRef.current)
+            
+            // Track last recalc position to avoid re-requesting on tiny drift
+            let lastRecalcLat = startLat
+            let lastRecalcLon = startLon
+
+            startGpsTracking(async (newLoc) => {
+                setAmbulancePos(newLoc)
+                
+                // Recalculate route if moved more than ~30 meters
+                const dLat = newLoc[0] - lastRecalcLat
+                const dLon = newLoc[1] - lastRecalcLon
+                const distApprox = Math.sqrt(dLat * dLat + dLon * dLon)
+                
+                if (distApprox > 0.0003) { // ~30m threshold
+                    lastRecalcLat = newLoc[0]
+                    lastRecalcLon = newLoc[1]
+                    try {
+                        const routeRes = await ambulanceService.getRoute(newLoc[0], newLoc[1], caseType)
+                        setRoute(routeRes.data.route)
+                        routeRef.current = routeRes.data.route
+                        setTravelTime(routeRes.data.estimated_time_minutes)
+                    } catch (e) {
+                        console.warn('Route recalc failed, keeping existing route', e)
+                    }
+                }
+
+                ambulanceService.postSimulationStep(newLoc[0], newLoc[1], routeRef.current)
+                    .then(res => {
+                        setSignals(res.data.signals)
+                        if (res.data.preemption_active) {
+                            addAlert('⚡ Green Signal Preempted Ahead!')
+                        }
+                    })
+                    .catch(e => console.error('Sim step failed', e))
+            })
+
         } catch (e) {
             addAlert('Routing failed! Using Failsafe Mode.')
             console.error('Routing error', e)
@@ -154,8 +225,10 @@ function MainApp() {
             clearInterval(simIntervalRef.current)
             simIntervalRef.current = null
         }
+        stopGpsTracking()
         setSimulationActive(false)
-        addAlert('Simulation stopped by operator.')
+        setLiveTrackingActive(false)
+        addAlert('Navigation stopped by operator.')
     }
 
     useEffect(() => {
@@ -166,23 +239,30 @@ function MainApp() {
     }, [simulationSpeed, simulationActive])
 
     return (
-        <div className="flex h-screen overflow-hidden bg-slate-900 text-slate-100 font-sans">
+        <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
             {/* Dashboard Area */}
-            <div className="w-1/3 min-w-[350px] max-w-[450px] h-full shadow-2xl z-20 bg-slate-900 flex flex-col border-r border-slate-800">
-                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-                    <div>
-                        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Session</p>
-                        <p className="text-sm font-bold text-blue-400">{user?.name} ({user?.role})</p>
+            <div className="w-1/3 min-w-[380px] max-w-[450px] h-full shadow-2xl z-20 bg-white flex flex-col border-r border-slate-200">
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 font-black text-xs shadow-inner">
+                            {user?.name?.charAt(0) || 'D'}
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black leading-none">Driver Session</p>
+                            <p className="text-sm font-black text-slate-800 mt-1">{user?.name}</p>
+                        </div>
                     </div>
                     <button
                         onClick={logout}
-                        className="text-xs bg-slate-800 hover:bg-red-600/20 hover:text-red-400 px-3 py-1.5 rounded-lg border border-slate-700 transition-all font-bold"
+                        className="p-2 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                        title="Sign Out"
                     >
-                        Sign Out
+                        <LogOut size={16} />
                     </button>
                 </div>
                 <Dashboard
                     startSimulation={startSimulation}
+                    startLiveTracking={startLiveTracking}
                     stopSimulation={stopSimulation}
                     isPickingLocation={isPickingLocation}
                     setIsPickingLocation={setIsPickingLocation}
@@ -194,6 +274,7 @@ function MainApp() {
                     alerts={alerts}
                     triggerEmergencyOptions={() => addAlert('Emergency options triggered.')}
                     simulationActive={simulationActive}
+                    liveTrackingActive={liveTrackingActive}
                     simulationSpeed={simulationSpeed}
                     setSimulationSpeed={setSimulationSpeed}
                     userLocation={userLocation}
@@ -222,6 +303,12 @@ function MainApp() {
     );
 }
 
+function RootRedirect() {
+    const { user } = useAuth();
+    if (user?.role === 'admin') return <Navigate to="/admin" />;
+    return <Navigate to="/dashboard" />;
+}
+
 function App() {
     return (
         <AuthProvider>
@@ -234,7 +321,12 @@ function App() {
                             <MainApp />
                         </ProtectedRoute>
                     } />
-                    <Route path="/" element={<Navigate to="/dashboard" />} />
+                    <Route path="/admin" element={
+                        <ProtectedRoute>
+                            <AdminDashboard />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/" element={<RootRedirect />} />
                 </Routes>
             </Router>
         </AuthProvider>

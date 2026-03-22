@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { MapContainer, TileLayer, Polyline, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 function MapEvents({ isPickingLocation, setPickedLocation }) {
     useMapEvents({
@@ -11,20 +13,8 @@ function MapEvents({ isPickingLocation, setPickedLocation }) {
     })
     return null
 }
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 
-<<<<<<< HEAD
-// Custom icons
-const ambulaceIcon = new L.Icon({
-    iconUrl: 'https://img.icons8.com/color/48/ambulance.png',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-=======
-// ── Helper: scale marker size based on zoom ──────────────────────────────────
-// Leaflet icons are just HTML, so we create them at fixed sizes.
-
-// ── Icon: Ambulance (pulsing red circle + emoji) ─────────────────────────────
+// ── Icon: Ambulance (Cleaner light-mode compatible) ─────────────────────────────
 const ambulanceIcon = L.divIcon({
     className: '',
     html: `
@@ -32,7 +22,7 @@ const ambulanceIcon = L.divIcon({
       <div style="
         position:absolute;inset:0;
         border-radius:50%;
-        background:rgba(239,68,68,0.25);
+        background:rgba(239,68,68,0.15);
         animation:amb-ping 1.2s ease-in-out infinite;
       "></div>
       <div style="
@@ -41,165 +31,108 @@ const ambulanceIcon = L.divIcon({
         border:3px solid #fff;
         border-radius:50%;
         display:flex;align-items:center;justify-content:center;
-        font-size:17px;
-        box-shadow:0 2px 12px rgba(239,68,68,0.7);
+        font-size:18px;
+        box-shadow:0 4px 15px rgba(239,68,68,0.4);
       ">🚑</div>
     </div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     popupAnchor: [0, -22],
->>>>>>> 3496421ad133aa4f3479135b423e57578b63cc9d
 })
 
-// ── Icon: Target Hospital (green cross) ─────────────────────────────────────
+// ── Icon: Target Hospital (Premium Emerald) ─────────────────────────────────────
 const makeHospitalIcon = (isTarget = false) => L.divIcon({
     className: '',
     html: `
     <div style="
-      width:${isTarget ? 40 : 32}px;height:${isTarget ? 40 : 32}px;
-      background:${isTarget ? '#16a34a' : '#1d4ed8'};
+      width:${isTarget ? 42 : 36}px;height:${isTarget ? 42 : 36}px;
+      background:${isTarget ? '#10b981' : '#3b82f6'};
       border:3px solid #fff;
-      border-radius:8px;
+      border-radius:12px;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 2px 10px rgba(0,0,0,0.4);
+      box-shadow:0 4px 12px ${isTarget ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.2)'};
       position:relative;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     ">
-      <!-- cross bar horizontal -->
       <div style="position:absolute;width:60%;height:22%;background:white;border-radius:2px;"></div>
-      <!-- cross bar vertical -->
       <div style="position:absolute;height:60%;width:22%;background:white;border-radius:2px;"></div>
+      ${isTarget ? '<div style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:#ef4444;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.5);"></div>' : ''}
     </div>`,
-    iconSize: [isTarget ? 40 : 32, isTarget ? 40 : 32],
-    iconAnchor: [isTarget ? 20 : 16, isTarget ? 40 : 32],
-    popupAnchor: [0, isTarget ? -42 : -34],
+    iconSize: [isTarget ? 42 : 36, isTarget ? 42 : 36],
+    iconAnchor: [isTarget ? 21 : 18, isTarget ? 42 : 36],
+    popupAnchor: [0, isTarget ? -44 : -38],
 })
 
-<<<<<<< HEAD
-const signalIcons = {
-    "RED": new L.divIcon({
-        className: 'custom-signal-icon',
-        html: `
-            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
-                <div class="w-3 h-3 rounded-full mb-1 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] border border-red-400/50"></div>
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full bg-slate-800"></div>
-            </div>
-        `,
-        iconSize: [24, 48],
-        iconAnchor: [12, 24]
-    }),
-    "GREEN": new L.divIcon({
-        className: 'custom-signal-icon',
-        html: `
-            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] border border-emerald-400/50"></div>
-            </div>
-        `,
-        iconSize: [24, 48],
-        iconAnchor: [12, 24]
-    }),
-    "YELLOW": new L.divIcon({
-        className: 'custom-signal-icon',
-        html: `
-            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-slate-700 shadow-xl scale-75">
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full mb-1 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)] border border-yellow-400/50"></div>
-                <div class="w-3 h-3 rounded-full bg-slate-800"></div>
-            </div>
-        `,
-        iconSize: [24, 48],
-        iconAnchor: [12, 24]
-    }),
-    "PREEMPTED_GREEN": new L.divIcon({
-        className: 'custom-signal-icon',
-        html: `
-            <div class="flex flex-col items-center bg-slate-900 p-1 rounded border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.4)] scale-110">
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full mb-1 bg-slate-800"></div>
-                <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,1)] border-2 border-white/30"></div>
-            </div>
-        `,
-        iconSize: [28, 56],
-        iconAnchor: [14, 28]
-=======
 const hospitalIcon = makeHospitalIcon(false)
 const targetHospitalIcon = makeHospitalIcon(true)
 
-// ── Icon: Traffic Signal Post (realistic post with 3-light housing) ──────────
+// ── Icon: Traffic Signal (Modern Slate Housing) ──────────────────────────────────
 const makeSignalIcon = (state) => {
     const colors = {
-        RED: { top: '#ef4444', mid: '#374151', bot: '#374151' },
-        GREEN: { top: '#374151', mid: '#374151', bot: '#22c55e' },
-        YELLOW: { top: '#374151', mid: '#eab308', bot: '#374151' },
-        PREEMPTED_GREEN: { top: '#374151', mid: '#374151', bot: '#4ade80' },
+        RED: { top: '#ef4444', mid: '#e2e8f0', bot: '#e2e8f0' },
+        GREEN: { top: '#e2e8f0', mid: '#e2e8f0', bot: '#10b981' },
+        YELLOW: { top: '#e2e8f0', mid: '#f59e0b', bot: '#e2e8f0' },
+        PREEMPTED_GREEN: { top: '#e2e8f0', mid: '#e2e8f0', bot: '#10b981' },
     }
     const c = colors[state] || colors.RED
-    const glowColor = state === 'RED' ? 'rgba(239,68,68,0.6)'
-        : state === 'GREEN' || state === 'PREEMPTED_GREEN' ? 'rgba(34,197,94,0.6)'
-            : 'rgba(234,179,8,0.6)'
+    const glowColor = state === 'RED' ? 'rgba(239,68,68,0.4)'
+        : (state === 'GREEN' || state === 'PREEMPTED_GREEN') ? 'rgba(16,185,129,0.4)'
+            : 'rgba(245,158,11,0.4)'
 
     return L.divIcon({
         className: '',
         html: `
-        <div style="display:flex;flex-direction:column;align-items:center;width:22px;">
-          <!-- Signal housing -->
+        <div style="display:flex;flex-direction:column;align-items:center;width:24px;">
           <div style="
-            width:18px;
-            background:#1f2937;
-            border:2px solid #4b5563;
-            border-radius:4px;
-            padding:2px;
-            display:flex;flex-direction:column;gap:2px;
-            box-shadow:0 0 6px ${glowColor};
+            width:20px;
+            background:#334155;
+            border:2px solid #fff;
+            border-radius:6px;
+            padding:3px;
+            display:flex;flex-direction:column;gap:3px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1);
           ">
-            <div style="width:12px;height:12px;border-radius:50%;background:${c.top};margin:0 auto;box-shadow:${c.top !== '#374151' ? '0 0 8px ' + glowColor : 'none'};"></div>
-            <div style="width:12px;height:12px;border-radius:50%;background:${c.mid};margin:0 auto;box-shadow:${c.mid !== '#374151' ? '0 0 8px ' + glowColor : 'none'};"></div>
-            <div style="width:12px;height:12px;border-radius:50%;background:${c.bot};margin:0 auto;box-shadow:${c.bot !== '#374151' ? '0 0 8px ' + glowColor : 'none'};"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:${c.top};margin:0 auto;box-shadow:${c.top !== '#e2e8f0' ? '0 0 6px ' + glowColor : 'none'};transition:all 0.4s;"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:${c.mid};margin:0 auto;box-shadow:${c.mid !== '#e2e8f0' ? '0 0 6px ' + glowColor : 'none'};transition:all 0.4s;"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:${c.bot};margin:0 auto;box-shadow:${c.bot !== '#e2e8f0' ? '0 0 6px ' + glowColor : 'none'};transition:all 0.4s;"></div>
           </div>
-          <!-- Post -->
-          <div style="width:3px;height:10px;background:#6b7280;border-radius:1px;"></div>
-          <!-- Base -->
-          <div style="width:8px;height:3px;background:#6b7280;border-radius:1px;"></div>
+          <div style="width:3px;height:12px;background:#94a3b8;border-radius:1px;"></div>
         </div>`,
-        iconSize: [22, 58],
-        iconAnchor: [11, 58],
-        popupAnchor: [0, -60],
->>>>>>> 3496421ad133aa4f3479135b423e57578b63cc9d
+        iconSize: [24, 64],
+        iconAnchor: [12, 64],
+        popupAnchor: [0, -66],
     })
 }
 
-// ── Icon: Static OSM signal (small grey post, no state color) ───────────────
+// ── Icon: OSM Signal (Clean Slate) ────────────────────────────────────────────────
 const osmSignalIcon = L.divIcon({
     className: '',
     html: `
-    <div style="display:flex;flex-direction:column;align-items:center;width:16px;opacity:0.75">
+    <div style="display:flex;flex-direction:column;align-items:center;width:18px;opacity:0.6">
       <div style="
-        width:14px;background:#1f2937;border:1.5px solid #6b7280;
-        border-radius:3px;padding:1px;display:flex;flex-direction:column;gap:1.5px;
+        width:14px;background:#475569;border:1.5px solid #fff;
+        border-radius:4px;padding:2px;display:flex;flex-direction:column;gap:2px;
       ">
-        <div style="width:9px;height:9px;border-radius:50%;background:#6b2828;margin:0 auto;"></div>
-        <div style="width:9px;height:9px;border-radius:50%;background:#6b5c0a;margin:0 auto;"></div>
-        <div style="width:9px;height:9px;border-radius:50%;background:#14542b;margin:0 auto;"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
       </div>
-      <div style="width:2px;height:8px;background:#9ca3af;"></div>
-      <div style="width:6px;height:2px;background:#9ca3af;"></div>
+      <div style="width:2px;height:10px;background:#94a3b8;"></div>
     </div>`,
-    iconSize: [16, 46],
-    iconAnchor: [8, 46],
-    popupAnchor: [0, -48],
+    iconSize: [18, 48],
+    iconAnchor: [9, 48],
+    popupAnchor: [0, -50],
 })
 
 // ── Icon: User GPS Location ──────────────────────────────────────────────────
 const userLocationIcon = L.divIcon({
     className: '',
     html: `
-    <div style="position:relative;width:28px;height:28px">
+    <div style="position:relative;width:30px;height:30px">
       <div style="
         position:absolute;inset:0;
         border-radius:50%;
-        background:rgba(59,130,246,0.2);
+        background:rgba(59,130,246,0.1);
         animation:amb-ping 1.5s ease-in-out infinite;
       "></div>
       <div style="
@@ -207,15 +140,14 @@ const userLocationIcon = L.divIcon({
         background:#3b82f6;
         border:3px solid #fff;
         border-radius:50%;
-        box-shadow:0 0 12px rgba(59,130,246,0.8);
+        box-shadow:0 4px 12px rgba(59,130,246,0.3);
       "></div>
     </div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -18],
 })
 
-// ── Map pan follower ─────────────────────────────────────────────────────────
 function MapFollower({ position }) {
     const map = useMap()
     useEffect(() => {
@@ -224,13 +156,12 @@ function MapFollower({ position }) {
     return null
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function MapComponent({
     ambulancePos,
     route,
-    signals,        // sim signals with live state (red/green/yellow)
-    osmSignals,     // real OSM signals (static, no state)
-    allHospitals,   // all hospitals to show as markers
+    signals,
+    osmSignals,
+    allHospitals,
     targetHospital,
     userLocation,
     center,
@@ -246,61 +177,17 @@ export default function MapComponent({
                     50% { transform: scale(1.7); opacity: 0; }
                 }
                 .leaflet-popup-content-wrapper {
-                    background: #1e293b;
-                    color: #e2e8f0;
-                    border: 1px solid #334155;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                    background: #ffffff;
+                    color: #0f172a;
+                    border: none;
+                    border-radius: 16px;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+                    padding: 0;
                 }
-                .leaflet-popup-tip { background: #1e293b; }
-                .leaflet-popup-content { margin: 10px 14px; font-size: 13px; line-height: 1.5; }
+                .leaflet-popup-tip { background: #ffffff; }
+                .leaflet-popup-content { margin: 16px; font-family: 'Inter', sans-serif; min-width: 180px; }
             `}</style>
 
-<<<<<<< HEAD
-            {/* Target Hospital */}
-            {targetHospital && (
-                <Marker position={[targetHospital.lat, targetHospital.lon]} icon={hospitalIcon}>
-                    <Popup className="dark-popup">
-                        <div className="text-slate-900">
-                            <strong className="text-lg text-blue-700">{targetHospital.name}</strong><br />
-                            <span className="text-sm font-semibold">{targetHospital.specialization}</span><br />
-                            <span className="text-xs bg-blue-100 px-2 py-1 rounded mt-1 inline-block">ICU Beds: {targetHospital.icu_beds_available}</span>
-                        </div>
-                    </Popup>
-                </Marker>
-            )}
-
-            {/* Ambulance */}
-            {ambulancePos && (
-                <Marker position={ambulancePos} icon={ambulaceIcon} zIndexOffset={1000}>
-                    <Popup className="dark-popup"><strong>Ambulance Unit 01</strong></Popup>
-                </Marker>
-            )}
-
-            {/* Ensure map follows ambulance softly */}
-            {ambulancePos && <MapCenterer pos={ambulancePos} />}
-
-            {/* Traffic Signals */}
-            {signals.map(s => (
-                <Marker key={`signal-${s.id}`} position={[s.lat, s.lon]} icon={signalIcons[s.state] || signalIcons["RED"]}>
-                    <Popup className="dark-popup">
-                        <div className="text-slate-900">
-                            <strong>Signal ID: {s.id}</strong><br />
-                            Status: <span className={`font-bold ${s.state.includes('GREEN') ? 'text-emerald-600' : s.state === 'RED' ? 'text-red-600' : 'text-yellow-600'}`}>{s.state}</span>
-                        </div>
-                    </Popup>
-                </Marker>
-            ))}
-
-            {/* Calculated Route - Glowing Blue */}
-            {route && route.length > 0 && (
-                <Polyline
-                    positions={route}
-                    color="#3b82f6"
-                    weight={6}
-                    opacity={0.8}
-                    className="animate-pulse"
-=======
             <MapContainer
                 center={center || [9.9816, 76.2999]}
                 zoom={13}
@@ -310,13 +197,10 @@ export default function MapComponent({
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
->>>>>>> 3496421ad133aa4f3479135b423e57578b63cc9d
                 />
 
-                {/* Follow ambulance during simulation */}
                 {ambulancePos && <MapFollower position={ambulancePos} />}
 
-                {/* Geofence area indicator around ambulance (300m) */}
                 {ambulancePos && (
                     <Circle
                         center={ambulancePos}
@@ -324,35 +208,34 @@ export default function MapComponent({
                         pathOptions={{
                             color: '#10b981',
                             fillColor: '#10b981',
-                            fillOpacity: 0.1,
-                            weight: 2,
-                            dashArray: '5, 10'
+                            fillOpacity: 0.08,
+                            weight: 1.5,
+                            dashArray: '4, 8'
                         }}
                     />
                 )}
 
-                {/* Map events for picking location */}
                 <MapEvents isPickingLocation={isPickingLocation} setPickedLocation={setPickedLocation} />
 
-                {/* Picked location marker */}
                 {pickedLocation && (
                     <Marker position={pickedLocation}>
-                        <Popup>Emergency Dispatch Origin</Popup>
+                        <Popup>
+                            <div className="font-bold text-slate-800">Dispatch Location</div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-1">{pickedLocation[0].toFixed(5)}, {pickedLocation[1].toFixed(5)}</div>
+                        </Popup>
                     </Marker>
                 )}
 
-                {/* Route polyline */}
                 {route && route.length > 1 && (
                     <Polyline
                         positions={route}
                         color="#3b82f6"
-                        weight={5}
-                        opacity={0.9}
-                        dashArray="12 6"
+                        weight={6}
+                        opacity={0.7}
+                        lineCap="round"
                     />
                 )}
 
-                {/* ── Real OSM traffic signals (static grey posts) ─── */}
                 {osmSignals && osmSignals.map((sig) => (
                     <Marker
                         key={`osm-${sig.id}`}
@@ -360,16 +243,14 @@ export default function MapComponent({
                         icon={osmSignalIcon}
                     >
                         <Popup>
-                            <div>
-                                <div style={{ fontWeight: 700, marginBottom: 4 }}>🚦 Traffic Signal</div>
-                                {sig.name && <div style={{ color: '#94a3b8', fontSize: 12 }}>{sig.name}</div>}
-                                <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>OSM ID: {sig.id}</div>
+                            <div className="space-y-1">
+                                <div className="font-black text-slate-900 text-xs flex items-center gap-2">🚦 Traffic Node</div>
+                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{sig.name || "Managed Intersection"}</div>
                             </div>
                         </Popup>
                     </Marker>
                 ))}
 
-                {/* ── Simulation signals (live colored traffic light posts) ─── */}
                 {signals && signals.map((sig) => (
                     <Marker
                         key={`sim-${sig.id}`}
@@ -377,56 +258,50 @@ export default function MapComponent({
                         icon={makeSignalIcon(sig.state)}
                     >
                         <Popup>
-                            <div>
-                                <div style={{ fontWeight: 700, marginBottom: 4 }}>🚦 Signal #{sig.id}</div>
-                                <div>State: <span style={{
-                                    color: sig.state === 'GREEN' || sig.state === 'PREEMPTED_GREEN' ? '#4ade80'
-                                        : sig.state === 'RED' ? '#f87171' : '#facc15',
-                                    fontWeight: 600
-                                }}>{sig.state}</span></div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-black text-slate-900 text-xs">Signal #{sig.id}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                        sig.state.includes('GREEN') ? 'bg-emerald-50 text-emerald-600' : sig.state === 'RED' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                                    }`}>{sig.state}</span>
+                                </div>
                                 {sig.state === 'PREEMPTED_GREEN' && (
-                                    <div style={{ color: '#4ade80', fontSize: 11, marginTop: 4 }}>⚡ Preempted for ambulance</div>
+                                    <div className="flex items-center gap-2 p-2 bg-emerald-600 text-white rounded-lg text-[10px] font-bold animate-pulse">
+                                        ⚡ Preemption Active
+                                    </div>
                                 )}
                             </div>
                         </Popup>
                     </Marker>
                 ))}
 
-                {/* ── All hospitals ─── */}
                 {allHospitals && allHospitals.map((h) => {
-                    const isTarget = targetHospital && targetHospital.id === h.id
+                    const isTarget = targetHospital && (targetHospital.id === h.id || targetHospital._id === h._id)
                     return (
                         <Marker
-                            key={`h-${h.id}`}
+                            key={`h-${h._id || h.id}`}
                             position={[h.lat, h.lon]}
                             icon={isTarget ? targetHospitalIcon : hospitalIcon}
                         >
                             <Popup>
-                                <div>
-                                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                                        {isTarget ? '🎯 ' : ''}🏥 {h.name}
+                                <div className="space-y-3">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="font-black text-slate-900 text-sm leading-tight">{h.name}</div>
+                                        <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">{h.specialization || "Emergency Care"}</div>
                                     </div>
-                                    <div style={{ color: '#94a3b8', fontSize: 12 }}>{h.specialization}</div>
-                                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
-                                        🛏 ICU beds: {h.icu_beds_available}
+                                    
+                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
+                                        <div className="p-1 bg-slate-100 rounded text-slate-500 font-black text-[9px] uppercase tracking-tighter">ICU: {h.icu_beds_available}+</div>
+                                        {isTarget && (
+                                            <div className="px-2 py-1 bg-red-500 text-white rounded text-[8px] font-black uppercase tracking-widest animate-pulse">En Route</div>
+                                        )}
                                     </div>
+                                    
                                     {h.capabilities && (
-                                        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                            {h.capabilities.map(cap => (
-                                                <span key={cap} style={{
-                                                    background: '#1e3a5f', color: '#93c5fd',
-                                                    borderRadius: 4, padding: '1px 6px', fontSize: 10
-                                                }}>{cap}</span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {h.capabilities.slice(0, 3).map(cap => (
+                                                <span key={cap} className="px-1.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-100 rounded text-[8px] font-black uppercase">{cap}</span>
                                             ))}
-                                        </div>
-                                    )}
-                                    {isTarget && (
-                                        <div style={{
-                                            marginTop: 6, background: '#14532d',
-                                            color: '#4ade80', borderRadius: 4,
-                                            padding: '3px 8px', fontSize: 11, textAlign: 'center'
-                                        }}>
-                                            ← Ambulance en route
                                         </div>
                                     )}
                                 </div>
@@ -435,28 +310,21 @@ export default function MapComponent({
                     )
                 })}
 
-                {/* ── Ambulance marker ─── */}
                 {ambulancePos && (
                     <Marker position={ambulancePos} icon={ambulanceIcon}>
                         <Popup>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>🚑 Ambulance</div>
-                                <div style={{ color: '#94a3b8', fontSize: 11 }}>In transit</div>
+                            <div className="flex flex-col items-center gap-2 py-1">
+                                <div className="font-black text-red-500 text-xs tracking-widest uppercase italic">Ambulance Alpha</div>
+                                <div className="text-[10px] text-slate-400 font-bold">Status: Emergency Transit</div>
                             </div>
                         </Popup>
                     </Marker>
                 )}
 
-                {/* ── User GPS location ─── */}
                 {userLocation && (
                     <Marker position={userLocation} icon={userLocationIcon}>
                         <Popup>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>📍 Your Location</div>
-                                <div style={{ color: '#94a3b8', fontSize: 11 }}>
-                                    {userLocation[0].toFixed(5)}, {userLocation[1].toFixed(5)}
-                                </div>
-                            </div>
+                            <div className="font-black text-blue-600 text-xs uppercase tracking-tight">Your Signal</div>
                         </Popup>
                     </Marker>
                 )}
