@@ -31,9 +31,11 @@ const ambulanceIcon = L.divIcon({
         border:3px solid #fff;
         border-radius:50%;
         display:flex;align-items:center;justify-content:center;
-        font-size:18px;
+        font-size:24px;
+        font-weight:900;
+        color:white;
         box-shadow:0 4px 15px rgba(239,68,68,0.4);
-      ">🚑</div>
+      ">+</div>
     </div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
@@ -244,7 +246,7 @@ export default function MapComponent({
                     >
                         <Popup>
                             <div className="space-y-1">
-                                <div className="font-black text-slate-900 text-xs flex items-center gap-2">🚦 Traffic Node</div>
+                                <div className="font-black text-slate-900 text-xs flex items-center gap-2">Traffic Node</div>
                                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{sig.name || "Managed Intersection"}</div>
                             </div>
                         </Popup>
@@ -267,7 +269,7 @@ export default function MapComponent({
                                 </div>
                                 {sig.state === 'PREEMPTED_GREEN' && (
                                     <div className="flex items-center gap-2 p-2 bg-emerald-600 text-white rounded-lg text-[10px] font-bold animate-pulse">
-                                        ⚡ Preemption Active
+                                        Preemption Active
                                     </div>
                                 )}
                             </div>

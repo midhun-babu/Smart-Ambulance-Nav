@@ -148,7 +148,7 @@ function MainApp() {
             setSimulationActive(false)
             setPickedLocation(null)
             setIsPickingLocation(false)
-            addAlert(`✅ Route found to ${hospitalData.name}. ETA: ${res.data.estimated_time_minutes} min. Live GPS active.`)
+            addAlert(`Route found to ${hospitalData.name}. ETA: ${res.data.estimated_time_minutes} min. Live GPS active.`)
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
             
@@ -181,7 +181,7 @@ function MainApp() {
                     .then(res => {
                         setSignals(res.data.signals)
                         if (res.data.preemption_active) {
-                            addAlert('⚡ Green Signal Preempted Ahead!')
+                            addAlert('Green Signal Preempted Ahead!')
                         }
                     })
                     .catch(e => console.error('Sim step failed', e))
@@ -201,7 +201,7 @@ function MainApp() {
             if (prev >= currentRoute.length - 1) {
                 clearInterval(simIntervalRef.current)
                 setSimulationActive(false)
-                addAlert('Ambulance arrived at the destination. 🏥')
+                addAlert('Ambulance arrived at the destination.')
                 return prev
             }
             const nextPos = currentRoute[prev + 1]

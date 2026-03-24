@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader, ChevronRight, Info } from 'lucide-react'
+import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader, ChevronRight, Info, Heart, Brain, Flame, Ambulance } from 'lucide-react'
 
 const CASE_PRESETS = [
-    { label: 'Cardiac Arrest', type: 'cardiac', icon: '❤️', color: 'red' },
-    { label: 'Trauma', type: 'trauma', icon: '🤕', color: 'orange' },
-    { label: 'Stroke', type: 'stroke', icon: '🧠', color: 'purple' },
-    { label: 'Burns', type: 'burns', icon: '🔥', color: 'yellow' },
+    { label: 'Cardiac Arrest', type: 'cardiac', icon: <Heart size={24} />, color: 'red' },
+    { label: 'Trauma', type: 'trauma', icon: <AlertTriangle size={24} />, color: 'orange' },
+    { label: 'Stroke', type: 'stroke', icon: <Brain size={24} />, color: 'purple' },
+    { label: 'Burns', type: 'burns', icon: <Flame size={24} />, color: 'yellow' },
 ]
 
 export default function Dashboard({
@@ -86,7 +86,7 @@ export default function Dashboard({
             {/* Header */}
             <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-3xl shadow-inner group">
-                    🚑
+                    <Ambulance size={24} className="text-emerald-500" />
                 </div>
                 <div className="flex-1">
                     <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">SmartNav</h1>
@@ -161,7 +161,7 @@ export default function Dashboard({
                                         ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-200 animate-pulse' 
                                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                             >
-                                {isPickingLocation ? 'Picking Point...' : '📍 Pick on Map'}
+                                {isPickingLocation ? 'Picking Point...' : 'Pick on Map'}
                             </button>
                         </div>
                     </div>

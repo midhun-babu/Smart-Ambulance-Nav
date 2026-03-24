@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, LogIn, AlertCircle, Ambulance } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Ambulance, CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -10,6 +10,10 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Check if we have a success message from registration
+    const successMessage = location.state?.message;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -47,6 +51,12 @@ export default function LoginPage() {
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-semibold flex items-center gap-2 animate-in slide-in-from-top-2">
                         <AlertCircle className="w-4 h-4" /> {error}
+                    </div>
+                )}
+                
+                {successMessage && !error && (
+                    <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl text-sm font-semibold flex items-center gap-2 animate-in slide-in-from-top-2">
+                        <CheckCircle2 className="w-4 h-4" /> {successMessage}
                     </div>
                 )}
 

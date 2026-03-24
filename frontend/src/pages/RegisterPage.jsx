@@ -21,7 +21,7 @@ export default function RegisterPage() {
         setLoading(true);
         try {
             await register(formData);
-            navigate('/dashboard');
+            navigate('/login', { state: { message: "Registration successful! Your account is pending Admin approval." } });
         } catch (err) {
             setError(err.response?.data?.detail || 'Registration failed');
         } finally {

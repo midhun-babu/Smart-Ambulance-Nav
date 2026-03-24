@@ -66,7 +66,7 @@ def check_role(user: dict, allowed_roles: list):
         )
     return True
 
-@router.post("/register", response_model=Token)
+@router.post("/register")
 async def register(user_data: dict): # Use dict to be flexible with optional hospitalName
     db = get_database()
     email = user_data.get("email")
@@ -97,8 +97,7 @@ async def register(user_data: dict): # Use dict to be flexible with optional hos
     
     user_id = await db.users.insert_one(user_dict)
     
-    access_token = create_access_token(data={"sub": email, "role": role})
-    return {"access_token": access_token, "token_type": "bearer", "role": role, "id": str(user_id.inserted_id)}
+    return {"message": "Registration successful. Pending admin approval.", "id": str(user_id.inserted_id)}
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):

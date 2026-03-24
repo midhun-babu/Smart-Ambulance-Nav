@@ -285,7 +285,7 @@ export default function AdminDashboard() {
                                                             onClick={() => handleApprove(u)}
                                                             className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-emerald-200 transition active:scale-95"
                                                         >
-                                                            ✓ Approve
+                                                            Approve
                                                         </button>
                                                         <button 
                                                             onClick={() => handleDeleteUser(u._id)}
@@ -419,7 +419,7 @@ export default function AdminDashboard() {
 
                                                 <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 font-bold">
                                                     <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-500">
-                                                        🏥
+                                                        <Building2 size={10} />
                                                     </div>
                                                     ICU Beds: {h.icu_beds_available || 0}+
                                                 </div>
