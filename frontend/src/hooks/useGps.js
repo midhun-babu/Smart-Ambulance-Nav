@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from 'react';
-
 export const useGps = (addAlert) => {
     const [userLocation, setUserLocation] = useState(null);
     const [gpsLoading, setGpsLoading] = useState(false);
