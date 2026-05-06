@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, Mail, Lock, User, AlertCircle, Ambulance } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, AlertCircle, Ambulance, Phone } from 'lucide-react';
 
 export default function RegisterPage() {
     const [formData, setFormData] = useState({
         email: '',
         name: '',
         role: 'driver',
-        password: ''
+        password: '',
+        phone: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -31,7 +32,6 @@ export default function RegisterPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-            {/* Background accents */}
             <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100/50 rounded-full blur-3xl animate-pulse" />
             <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-100/50 rounded-full blur-3xl animate-pulse duration-700" />
 
@@ -70,6 +70,18 @@ export default function RegisterPage() {
                             placeholder="Email Address"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className="premium-input pl-12"
+                            required
+                        />
+                    </div>
+
+                    <div className="relative group">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <input
+                            type="tel"
+                            placeholder="Phone Number"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                             className="premium-input pl-12"
                             required
                         />

@@ -1,0 +1,16 @@
+{
+  "name": "smart-ambulance-nav-system",
+  "version": "1.0.0",
+  "description": "Smart Ambulance Navigation System - Root Runner",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "cd backend && python -m venv venv && venv\\Scripts\\pip install -r requirements.txt && cd ..\\frontend && npm install",
+    "backend": "cd backend && .\\venv\\Scripts\\python.exe -m uvicorn app.main:app --reload",
+    "frontend": "cd frontend && npm run dev",
+    "simulator": "cd backend && .\\venv\\Scripts\\python.exe simulate_movements.py",
+    "start": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run simulator\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

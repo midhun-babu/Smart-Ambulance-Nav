@@ -12,7 +12,6 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     
-    // Check if we have a success message from registration
     const successMessage = location.state?.message;
 
     const handleSubmit = async (e) => {
@@ -23,6 +22,8 @@ export default function LoginPage() {
             const data = await login(email, password);
             if (data.role === 'admin') {
                 navigate('/admin');
+            } else if (data.role === 'hospital') {
+                navigate('/hospital');
             } else {
                 navigate('/dashboard');
             }
@@ -35,7 +36,6 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-            {/* Background accents */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-100/50 rounded-full blur-3xl animate-pulse" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100/50 rounded-full blur-3xl animate-pulse duration-700" />
 

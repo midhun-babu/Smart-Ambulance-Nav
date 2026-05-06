@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader, ChevronRight, Info, Heart, Brain, Flame, Ambulance } from 'lucide-react'
+import { AlertTriangle, Activity, Zap, Play, StopCircle, MapPin, Navigation, Loader, ChevronRight, Info, Heart, Brain, Flame, Ambulance, Phone, ChevronDown } from 'lucide-react'
 
 const CASE_PRESETS = [
     { label: 'Cardiac Arrest', type: 'cardiac', icon: <Heart size={24} />, color: 'red' },
@@ -9,6 +9,7 @@ const CASE_PRESETS = [
 ]
 
 export default function Dashboard({
+    isAdmin,
     startSimulation,
     loading,
     targetHospital,
@@ -28,10 +29,14 @@ export default function Dashboard({
     setIsPickingLocation,
     pickedLocation,
     setPickedLocation,
+    activeDrivers,
+    allHospitals,
 }) {
     const [selectedCase, setSelectedCase] = useState(CASE_PRESETS[0])
+    const [manualHospital, setManualHospital] = useState(null)
     const [useGPS, setUseGPS] = useState(false)
     const [trackingMode, setTrackingMode] = useState('simulation') // 'simulation' vs 'live'
+    const [showNearbyPanel, setShowNearbyPanel] = useState(true)
 
     const TEST_SCENARIOS = [
         { name: 'Select Test Scenario...', lat: 0, lon: 0 },
@@ -48,7 +53,7 @@ export default function Dashboard({
             if (!userLocation) return;
             startLat = userLocation[0];
             startLon = userLocation[1];
-            startLiveTracking(selectedCase.type, startLat, startLon);
+            startLiveTracking(selectedCase.type, startLat, startLon, manualHospital?._id || manualHospital?.id);
             return;
         }
         if (useGPS && userLocation) {
@@ -62,7 +67,7 @@ export default function Dashboard({
             startLat = 9.9816;
             startLon = 76.2999;
         }
-        startSimulation(selectedCase.type, startLat, startLon);
+        startSimulation(selectedCase.type, startLat, startLon, manualHospital?._id || manualHospital?.id);
     }
 
     const handleScenarioChange = (e) => {
@@ -97,9 +102,11 @@ export default function Dashboard({
                 </div>
             </div>
 
-            {/* Mode Selection */}
-            <div className="bg-slate-50 p-1.5 rounded-[1.25rem] border border-slate-100 flex shadow-sm">
-                <button
+            {!isAdmin && (
+                <div className="flex flex-col gap-6">
+                    {/* Mode Selection */}
+                    <div className="bg-slate-50 p-1.5 rounded-[1.25rem] border border-slate-100 flex shadow-sm">
+                        <button
                     onClick={() => setTrackingMode('simulation')}
                     className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${trackingMode === 'simulation' ? 'bg-white text-emerald-600 shadow-md ring-1 ring-black/[0.02]' : 'text-slate-400 hover:text-slate-600'}`}
                 >
@@ -133,6 +140,38 @@ export default function Dashboard({
                         </button>
                     ))}
                 </div>
+            </div>
+
+            {/* Manual Hospital Selection */}
+            <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Activity size={12} className="text-blue-500" /> Target Hospital (Manual)
+                </label>
+                <div className="relative">
+                    <select
+                        onChange={(e) => {
+                            const h = allHospitals.find(h => (h._id || h.id) === e.target.value);
+                            setManualHospital(h || null);
+                        }}
+                        value={manualHospital?._id || manualHospital?.id || ''}
+                        className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 transition-all shadow-sm appearance-none"
+                    >
+                        <option value="">Auto-select (Nearest Capable)</option>
+                        {allHospitals && allHospitals.map(h => (
+                            <option key={h._id || h.id} value={h._id || h.id}>
+                                {h.name} ({h.specialization || 'General'})
+                            </option>
+                        ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDown size={14} />
+                    </div>
+                </div>
+                {manualHospital && (
+                    <p className="text-[9px] text-blue-500 font-bold italic px-1 animate-in fade-in slide-in-from-top-1">
+                        * Override active: System will route directly to {manualHospital.name}
+                    </p>
+                )}
             </div>
 
             {/* Location Management */}
@@ -273,6 +312,72 @@ export default function Dashboard({
                     </div>
                 </div>
             )}
+                </div>
+            )}
+
+            {/* Nearby Ambulances Panel */}
+            <div className="space-y-3">
+                <button
+                    onClick={() => setShowNearbyPanel(!showNearbyPanel)}
+                    className="flex items-center justify-between w-full text-left"
+                >
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 cursor-pointer">
+                        <Ambulance size={12} className="text-blue-500" /> Nearby Ambulances
+                        {activeDrivers && activeDrivers.length > 0 && (
+                            <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[9px] font-black">
+                                {activeDrivers.length}
+                            </span>
+                        )}
+                    </label>
+                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${showNearbyPanel ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showNearbyPanel && (
+                    <div className="bg-slate-50/50 rounded-3xl border border-slate-100 p-4 space-y-2 max-h-[200px] overflow-y-auto stylish-scrollbar">
+                        {(!activeDrivers || activeDrivers.length === 0) ? (
+                            <div className="flex flex-col items-center justify-center py-6 text-slate-300 gap-2 opacity-60">
+                                <Ambulance size={20} />
+                                <p className="text-[10px] font-bold italic">No active ambulances nearby</p>
+                            </div>
+                        ) : (
+                            activeDrivers.map((driver, i) => (
+                                <div
+                                    key={driver.id}
+                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                        i === 0 ? 'bg-white border-blue-100 shadow-sm' : 'bg-transparent border-transparent hover:bg-white hover:border-slate-100'
+                                    }`}
+                                >
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black shrink-0 ${
+                                        driver.status === 'available' ? 'bg-blue-500' : 'bg-slate-400'
+                                    }`}>
+                                        {driver.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-slate-800 truncate">{driver.name}</span>
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0 ${
+                                                driver.status === 'available' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                            }`}>{driver.status}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-0.5">
+                                            {driver.phone && (
+                                                <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                                                    <Phone size={8} /> {driver.phone}
+                                                </span>
+                                            )}
+                                            {driver.distance_km !== undefined && (
+                                                <span className="text-[10px] text-blue-500 font-black">
+                                                    {driver.distance_km < 1 ? `${(driver.distance_km * 1000).toFixed(0)}m` : `${driver.distance_km}km`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Logs Area */}
             <div className="flex-1 min-h-0 flex flex-col space-y-3">

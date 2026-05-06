@@ -61,7 +61,7 @@ def load_graph(place_name="Kochi, Kerala, India"):
         # compute a matching travel time based on current speed
         length = data.get('length', 0.0)  # meters
         if base > 0:
-            data['current_travel_time'] = length / base * 3600
+            data['current_travel_time'] = (length / 1000) / base * 3600
         else:
             data['current_travel_time'] = data.get('travel_time', 0)
     # === end traffic initialization ===

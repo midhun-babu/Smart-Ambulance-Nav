@@ -22,8 +22,8 @@ const ambulanceIcon = L.divIcon({
       <div style="
         position:absolute;inset:0;
         border-radius:50%;
-        background:rgba(239,68,68,0.15);
-        animation:amb-ping 1.2s ease-in-out infinite;
+        background:rgba(239,68,68,0.2);
+        animation:amb-ping 1s ease-in-out infinite;
       "></div>
       <div style="
         position:absolute;inset:4px;
@@ -32,37 +32,69 @@ const ambulanceIcon = L.divIcon({
         border-radius:50%;
         display:flex;align-items:center;justify-content:center;
         font-size:24px;
-        font-weight:900;
-        color:white;
-        box-shadow:0 4px 15px rgba(239,68,68,0.4);
-      ">+</div>
+        box-shadow:0 4px 15px rgba(239,68,68,0.5);
+        z-index: 2;
+      ">🚑</div>
     </div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     popupAnchor: [0, -22],
 })
 
+// ── Icon: Other Active Ambulance (Blue - Uber/Rapido style) ─────────────────
+const makeDriverAmbulanceIcon = (status) => {
+    const isAvailable = status === 'available'
+    const bgColor = isAvailable ? '#3b82f6' : '#94a3b8'
+    const glowColor = isAvailable ? 'rgba(59,130,246,0.3)' : 'rgba(148,163,184,0.2)'
+    return L.divIcon({
+        className: '',
+        html: `
+        <div style="position:relative;width:38px;height:38px">
+          ${isAvailable ? `<div style="
+            position:absolute;inset:0;
+            border-radius:50%;
+            background:rgba(59,130,246,0.12);
+            animation:amb-ping 1.8s ease-in-out infinite;
+          "></div>` : ''}
+          <div style="
+            position:absolute;inset:4px;
+            background:${bgColor};
+            border:3px solid #fff;
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 4px 12px ${glowColor};
+            font-size: 18px;
+          ">
+            🚑
+          </div>
+        </div>`,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19],
+        popupAnchor: [0, -22],
+    })
+}
+
 // ── Icon: Target Hospital (Premium Emerald) ─────────────────────────────────────
 const makeHospitalIcon = (isTarget = false) => L.divIcon({
     className: '',
     html: `
     <div style="
-      width:${isTarget ? 42 : 36}px;height:${isTarget ? 42 : 36}px;
-      background:${isTarget ? '#10b981' : '#3b82f6'};
-      border:3px solid #fff;
+      width:${isTarget ? 48 : 40}px;height:${isTarget ? 48 : 40}px;
+      background: white;
+      border:${isTarget ? '3px solid #10b981' : '2px solid #3b82f6'};
       border-radius:12px;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 4px 12px ${isTarget ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.2)'};
+      box-shadow:0 6px 16px ${isTarget ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.2)'};
       position:relative;
+      font-size: ${isTarget ? '28px' : '22px'};
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     ">
-      <div style="position:absolute;width:60%;height:22%;background:white;border-radius:2px;"></div>
-      <div style="position:absolute;height:60%;width:22%;background:white;border-radius:2px;"></div>
-      ${isTarget ? '<div style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:#ef4444;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.5);"></div>' : ''}
+      🏥
+      ${isTarget ? '<div style="position:absolute;top:-6px;right:-6px;width:14px;height:14px;background:#ef4444;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.5);"></div>' : ''}
     </div>`,
-    iconSize: [isTarget ? 42 : 36, isTarget ? 42 : 36],
-    iconAnchor: [isTarget ? 21 : 18, isTarget ? 42 : 36],
-    popupAnchor: [0, isTarget ? -44 : -38],
+    iconSize: [isTarget ? 48 : 40, isTarget ? 48 : 40],
+    iconAnchor: [isTarget ? 24 : 20, isTarget ? 48 : 40],
+    popupAnchor: [0, isTarget ? -50 : -42],
 })
 
 const hospitalIcon = makeHospitalIcon(false)
@@ -106,25 +138,7 @@ const makeSignalIcon = (state) => {
     })
 }
 
-// ── Icon: OSM Signal (Clean Slate) ────────────────────────────────────────────────
-const osmSignalIcon = L.divIcon({
-    className: '',
-    html: `
-    <div style="display:flex;flex-direction:column;align-items:center;width:18px;opacity:0.6">
-      <div style="
-        width:14px;background:#475569;border:1.5px solid #fff;
-        border-radius:4px;padding:2px;display:flex;flex-direction:column;gap:2px;
-      ">
-        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
-        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
-        <div style="width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin:0 auto;"></div>
-      </div>
-      <div style="width:2px;height:10px;background:#94a3b8;"></div>
-    </div>`,
-    iconSize: [18, 48],
-    iconAnchor: [9, 48],
-    popupAnchor: [0, -50],
-})
+
 
 // ── Icon: User GPS Location ──────────────────────────────────────────────────
 const userLocationIcon = L.divIcon({
@@ -162,7 +176,6 @@ export default function MapComponent({
     ambulancePos,
     route,
     signals,
-    osmSignals,
     allHospitals,
     targetHospital,
     userLocation,
@@ -170,6 +183,7 @@ export default function MapComponent({
     isPickingLocation,
     pickedLocation,
     setPickedLocation,
+    activeDrivers,
 }) {
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -238,20 +252,7 @@ export default function MapComponent({
                     />
                 )}
 
-                {osmSignals && osmSignals.map((sig) => (
-                    <Marker
-                        key={`osm-${sig.id}`}
-                        position={[sig.lat, sig.lon]}
-                        icon={osmSignalIcon}
-                    >
-                        <Popup>
-                            <div className="space-y-1">
-                                <div className="font-black text-slate-900 text-xs flex items-center gap-2">Traffic Node</div>
-                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{sig.name || "Managed Intersection"}</div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                ))}
+
 
                 {signals && signals.map((sig) => (
                     <Marker
@@ -299,6 +300,12 @@ export default function MapComponent({
                                         )}
                                     </div>
                                     
+                                    {h.phone && (
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold border-t border-slate-50 pt-2">
+                                            <span>📞</span> {h.phone}
+                                        </div>
+                                    )}
+                                    
                                     {h.capabilities && (
                                         <div className="flex flex-wrap gap-1">
                                             {h.capabilities.slice(0, 3).map(cap => (
@@ -330,6 +337,36 @@ export default function MapComponent({
                         </Popup>
                     </Marker>
                 )}
+
+                {/* Active Driver Ambulances (Nearest Ambulance Feature) */}
+                {activeDrivers && activeDrivers.map((driver) => (
+                    <Marker
+                        key={`driver-${driver.id}`}
+                        position={[driver.lat, driver.lon]}
+                        icon={makeDriverAmbulanceIcon(driver.status)}
+                    >
+                        <Popup>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="font-black text-slate-900 text-sm leading-tight">{driver.name}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                        driver.status === 'available' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                    }`}>{driver.status}</span>
+                                </div>
+                                {driver.phone && (
+                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold">
+                                        <span>📞</span> {driver.phone}
+                                    </div>
+                                )}
+                                {driver.distance_km !== undefined && (
+                                    <div className="text-[10px] text-blue-600 font-black uppercase tracking-tight">
+                                        {driver.distance_km < 1 ? `${(driver.distance_km * 1000).toFixed(0)}m away` : `${driver.distance_km} km away`}
+                                    </div>
+                                )}
+                            </div>
+                        </Popup>
+                    </Marker>
+                ))}
             </MapContainer>
         </div>
     )

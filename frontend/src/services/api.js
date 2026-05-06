@@ -15,4 +15,20 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Add a response interceptor for global error handling
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+       
+        console.error("Global API Error:", error.response?.data?.detail || error.message);
+        
+        if (error.response?.status === 401) {
+            console.warn("Unauthorized access - possible expired token.");
+         
+        }
+        
+        return Promise.reject(error);
+    }
+);
+
 export default api;

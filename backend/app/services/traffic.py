@@ -16,34 +16,9 @@ def randomize_traffic(G, variation=0.3):
         data['current_speed_kph'] = new_speed
         length = data.get('length', 0.0)
         if new_speed > 0:
-            data['current_travel_time'] = length / new_speed * 3600
+            data['current_travel_time'] = (length / 1000) / new_speed * 3600
         else:
             data['current_travel_time'] = data.get('travel_time', 0)
-
-
-def get_route_traffic(G, route_nodes):
-    """Return a list of traffic info for each segment in a node route.
-
-    Each entry contains the two node IDs, current speed, and travel time.
-    """
-    segments = []
-    for i in range(len(route_nodes) - 1):
-        u = route_nodes[i]
-        v = route_nodes[i + 1]
-        edge_data = G.get_edge_data(u, v)
-        if isinstance(edge_data, dict):
-            # pick the edge with minimal current_travel_time
-            best = min(edge_data.values(), key=lambda d: d.get('current_travel_time', float('inf')))
-            data = best
-        else:
-            data = edge_data
-        segments.append({
-            'u': u,
-            'v': v,
-            'speed_kph': data.get('current_speed_kph'),
-            'travel_time': data.get('current_travel_time'),
-        })
-    return segments
 
 
 def get_overall_traffic(G):

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import * as adminService from '../services/adminService';
-import { Users, Building2, CheckCircle, ShieldAlert, X, Edit2, Trash2, Plus, Loader, LogOut, MapPin, Ambulance, AlertCircle } from 'lucide-react';
+import { Users, Building2, CheckCircle, ShieldAlert, X, Edit2, Trash2, Plus, Loader, LogOut, MapPin, Ambulance, AlertCircle, Phone } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -92,20 +92,23 @@ export default function AdminDashboard() {
         });
     };
 
-    const executeDeletion = async () => {
+    const executeAction = async () => {
         const { type, id } = confirmState;
         setConfirmState({ ...confirmState, isOpen: false });
         
         try {
             if (type === 'user') {
                 await adminService.deleteUser(id);
+                fetchData();
             } else if (type === 'hospital') {
                 await adminService.deleteHospital(id);
+                fetchData();
+            } else if (type === 'save') {
+                await handleSaveEdit();
             }
-            fetchData();
         } catch (error) {
             console.error(error);
-            const msg = error.response?.data?.detail || `Failed to delete ${type}. Please check system logs.`;
+            const msg = error.response?.data?.detail || `Action failed. Please check system logs.`;
             alert(msg);
         }
     };
@@ -120,7 +123,7 @@ export default function AdminDashboard() {
         try {
             if (editType === 'hospital') {
                 if (editData._id || editData.id) {
-                    await adminService.updateHospital(editData.id || editData._id, editData);
+                    await adminService.updateHospital(editData._id || editData.id, editData);
                 } else {
                     await adminService.createHospital(editData);
                 }
@@ -131,7 +134,17 @@ export default function AdminDashboard() {
             fetchData();
         } catch (error) {
             console.error("Save failed", error);
+            throw error;
         }
+    };
+
+    const handleConfirmSave = () => {
+        setConfirmState({
+            isOpen: true,
+            type: 'save',
+            title: 'Confirm Changes',
+            message: 'Are you sure you want to apply these updates?'
+        });
     };
 
     function LocationPicker({ pos, setPos }) {
@@ -277,6 +290,7 @@ export default function AdminDashboard() {
                                                         <div>
                                                             <p className="text-slate-900 font-black text-lg leading-none">{u.name}</p>
                                                             <p className="text-slate-500 text-sm mt-1">{u.email} • <span className="text-blue-500 font-black text-[10px] uppercase tracking-widest">{u.role}</span></p>
+                                                            {u.phone && <p className="text-slate-400 text-[11px] mt-0.5 font-bold flex items-center gap-1"><Phone size={10} /> {u.phone}</p>}
                                                             <p className="text-slate-300 text-[10px] mt-1 font-bold">REQUESTED: {u.created_at ? new Date(u.created_at).toLocaleString() : 'N/A'}</p>
                                                         </div>
                                                     </div>
@@ -316,6 +330,7 @@ export default function AdminDashboard() {
                                                 <tr className="text-[10px] uppercase font-black text-slate-400 tracking-widest">
                                                     <th className="px-8 py-4">Name</th>
                                                     <th className="px-8 py-4">Email Contact</th>
+                                                    <th className="px-8 py-4">Phone</th>
                                                     <th className="px-8 py-4">Status</th>
                                                     <th className="px-8 py-4 text-right">Actions</th>
                                                 </tr>
@@ -332,6 +347,13 @@ export default function AdminDashboard() {
                                                             </div>
                                                         </td>
                                                         <td className="px-8 py-5 text-slate-500 font-medium">{u.email}</td>
+                                                        <td className="px-8 py-5 text-slate-500 font-medium">
+                                                            {u.phone ? (
+                                                                <span className="flex items-center gap-1.5"><Phone size={12} className="text-slate-400" /> {u.phone}</span>
+                                                            ) : (
+                                                                <span className="text-slate-300 italic text-xs">N/A</span>
+                                                            )}
+                                                        </td>
                                                         <td className="px-8 py-5">
                                                             {u.is_approved 
                                                                 ? <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
@@ -423,6 +445,12 @@ export default function AdminDashboard() {
                                                     </div>
                                                     ICU Beds: {h.icu_beds_available || 0}+
                                                 </div>
+                                                {h.phone && (
+                                                    <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-bold">
+                                                        <Phone size={12} className="text-slate-400" />
+                                                        {h.phone}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -436,9 +464,9 @@ export default function AdminDashboard() {
             {/* Modal - Modern Light Theme */}
             {isEditModalOpen && (
                 <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl p-0 overflow-hidden animate-in zoom-in-95 duration-300">
+                    <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl p-0 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
                         {/* Modal Header */}
-                        <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center text-slate-900">
+                        <div className="bg-slate-50 px-6 py-5 border-b border-slate-100 flex justify-between items-center text-slate-900 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shadow-sm">
                                     {editType === 'hospital' ? <Building2 size={20} /> : <Users size={20} />}
@@ -460,13 +488,13 @@ export default function AdminDashboard() {
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-8">
-                            <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
+                        {/* Modal Form */}
+                        <form className="flex flex-col flex-1 overflow-hidden" onSubmit={(e) => { e.preventDefault(); handleConfirmSave(); }}>
+                            <div className="p-6 sm:p-8 overflow-y-auto flex-1 space-y-6">
                                 {editType === 'hospital' ? (
                                     <>
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                            <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="space-y-5">
                                                 <div>
                                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Hospital Identity</label>
                                                     <input 
@@ -521,6 +549,17 @@ export default function AdminDashboard() {
                                                         onChange={e => setEditData({...editData, specialization: e.target.value})} 
                                                     />
                                                 </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
+                                                    <input 
+                                                        type="tel"
+                                                        placeholder="e.g. +91 9876543210"
+                                                        className="premium-input" 
+                                                        value={editData.phone || ''} 
+                                                        onChange={e => setEditData({...editData, phone: e.target.value})} 
+                                                    />
+                                                </div>
                                             </div>
 
                                             <div className="flex flex-col">
@@ -528,7 +567,7 @@ export default function AdminDashboard() {
                                                     <span>Spatial Pinning</span>
                                                     <span className="text-[10px] lowercase italic font-medium">Click map to drop pin</span>
                                                 </label>
-                                                <div className="flex-1 min-h-[250px] w-full rounded-2xl overflow-hidden border border-slate-100 shadow-inner">
+                                                <div className="flex-1 min-h-[200px] w-full rounded-2xl overflow-hidden border border-slate-100 shadow-inner">
                                                     <MapContainer center={[9.9816, 76.2999]} zoom={12} style={{ height: '100%', width: '100%' }}>
                                                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                                                         <LocationPicker pos={editData} setPos={setEditData} />
@@ -596,6 +635,16 @@ export default function AdminDashboard() {
                                                 onChange={e => setEditData({...editData, email: e.target.value})} 
                                             />
                                         </div>
+                                        <div>
+                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
+                                            <input 
+                                                type="tel"
+                                                placeholder="+91 9876543210"
+                                                className="premium-input" 
+                                                value={editData.phone || ''} 
+                                                onChange={e => setEditData({...editData, phone: e.target.value})} 
+                                            />
+                                        </div>
                                         <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3 italic text-blue-700 text-[11px] font-bold">
                                             <AlertCircle size={16} className="shrink-0" />
                                             <span>Note: Changing a driver's email will affect their login credentials. Please ensure the driver is notified of this update.</span>
@@ -603,23 +652,23 @@ export default function AdminDashboard() {
                                     </div>
                                 )}
 
-                                <div className="flex justify-end gap-4 mt-10 pt-6 border-t border-slate-50">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setIsEditModalOpen(false)} 
-                                        className="px-6 py-2.5 text-sm font-black text-slate-400 hover:text-slate-600 transition"
-                                    >
-                                        Discard Changes
-                                    </button>
-                                    <button 
-                                        type="submit" 
-                                        className="btn-primary"
-                                    >
-                                        {editType === 'hospital' ? 'Sync Infrastructure' : 'Update Profile'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            </div>
+                            <div className="px-6 sm:px-8 py-5 bg-white border-t border-slate-100 flex justify-end gap-4 shrink-0">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsEditModalOpen(false)} 
+                                    className="px-6 py-2.5 text-sm font-black text-slate-400 hover:bg-slate-50 rounded-xl transition"
+                                >
+                                    Discard Changes
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="btn-primary"
+                                >
+                                    {editType === 'hospital' ? 'Sync Infrastructure' : 'Update Profile'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -628,8 +677,8 @@ export default function AdminDashboard() {
             {confirmState.isOpen && (
                 <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300 border border-slate-100">
-                        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 mx-auto shadow-inner">
-                            <ShieldAlert size={32} />
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-inner ${confirmState.type === 'save' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {confirmState.type === 'save' ? <CheckCircle size={32} /> : <ShieldAlert size={32} />}
                         </div>
                         <h2 className="text-xl font-black text-slate-900 text-center mb-2 tracking-tight">
                             {confirmState.title}
@@ -645,10 +694,10 @@ export default function AdminDashboard() {
                                 Cancel
                             </button>
                             <button 
-                                onClick={executeDeletion}
-                                className="flex-1 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition shadow-lg shadow-red-200 active:scale-95"
+                                onClick={executeAction}
+                                className={`flex-1 px-6 py-3 rounded-xl text-white font-bold text-sm transition shadow-lg active:scale-95 ${confirmState.type === 'save' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}
                             >
-                                Confirm Delete
+                                {confirmState.type === 'save' ? 'Confirm Apply' : 'Confirm Delete'}
                             </button>
                         </div>
                     </div>

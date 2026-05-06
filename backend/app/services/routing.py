@@ -19,9 +19,6 @@ def heuristic(u, v, G):
     except Exception:
         return 0
 
-def edge_weight(u, v, k, data):
-    return data.get('current_travel_time', data.get('travel_time', 0))
-
 def _edge_weight(u, v, data):
     # weight function used by NetworkX. `data` may be a dict (simple graph)
     # or a dict-of-dicts (multigraph). When it's nested, pick the minimum

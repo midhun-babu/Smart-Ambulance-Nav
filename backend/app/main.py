@@ -1,11 +1,16 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Optional
 import uvicorn
 import math
-import httpx
 
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from app.services.graph_loader import load_graph, get_nearest_node
 from app.services.hospital_data import filter_hospitals
@@ -16,21 +21,23 @@ from app.services.simulation import simulate_step
 # database & auth
 from app.db.session import get_database, ping_database
 from app.api.v1 import auth, admin
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # traffic utilities for demo
-from app.services.traffic import randomize_traffic, get_route_traffic, get_overall_traffic
+from app.services.traffic import randomize_traffic, get_overall_traffic
 
-app = FastAPI(title="Intelligent Ambulance Routing")
+
         
 # Global state
 G = None
 signals = []
+cached_hospitals = []
 
 class RouteRequest(BaseModel):
     start_lat: float
     start_lon: float
-    case_type: str
+    case_type: Optional[str] = "trauma"
+    hospital_id: Optional[str] = None
 
 class SimulationStepRequest(BaseModel):
     current_lat: float
@@ -40,7 +47,7 @@ class SimulationStepRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global G, signals
+    global G, signals, cached_hospitals
     print("Loading graph data for Kerala (Kochi region)...")
     G, signals = load_graph()
     
@@ -66,20 +73,53 @@ async def lifespan(app: FastAPI):
     # 2. Hospitals Init
     from app.services.hospital_data import get_hospitals as get_default_hospitals
     hospitals_count = await db.hospitals.count_documents({})
+    defaults = get_default_hospitals()
     if hospitals_count == 0:
         print("Initializing hospitals collection...")
-        defaults = get_default_hospitals()
         if defaults:
             await db.hospitals.insert_many(defaults)
             
-    print(f"Loaded {hospitals_count if hospitals_count > 0 else len(get_default_hospitals())} hospitals and {len(signals)} signals.")
+    # 3. Hospital Users Init
+    hospital_users_count = await db.users.count_documents({"role": "hospital"})
+    if hospital_users_count == 0 and defaults:
+        print("Creating default hospital users...")
+        hospital_users = []
+        for i, h in enumerate(defaults):
+            email = f"hospital{i+1}@smartnav.com"
+            hospital_users.append({
+                "email": email,
+                "name": h["name"],
+                "role": "hospital",
+                "password_hash": get_password_hash("1234"),
+                "is_approved": True,
+                "created_at": datetime.utcnow()
+            })
+        if hospital_users:
+            await db.users.insert_many(hospital_users)
+            
+    # Cache hospitals
+    cursor = db.hospitals.find({})
+    hospitals = await cursor.to_list(length=1000)
+    for h in hospitals:
+        h["id"] = str(h["_id"])
+        h.pop("_id", None)
+    cached_hospitals = hospitals
+            
+    print(f"Loaded {len(cached_hospitals)} hospitals and {len(signals)} signals.")
     yield
 
 app = FastAPI(title="Intelligent Ambulance Routing", lifespan=lifespan)
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "An unexpected error occurred on the server.", "details": str(exc)},
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:2500", "http://127.0.0.1:2500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,86 +142,134 @@ def get_graph_status():
 @app.get("/hospitals")
 async def get_all_hospitals():
     """Return all hospitals in Ernakulam for map rendering."""
-    db = get_database()
-    cursor = db.hospitals.find({})
-    hospitals = await cursor.to_list(length=1000)
-    for h in hospitals:
-        h["id"] = str(h["_id"])
-        h.pop("_id", None)
-    return {"hospitals": hospitals}
+    return {"hospitals": cached_hospitals}
 
 @app.get("/hospitals/filter")
 async def get_filtered_hospitals(case_type: str):
-    db = get_database()
-    cursor = db.hospitals.find({})
-    hospitals = await cursor.to_list(length=1000)
-    for h in hospitals:
-        h["id"] = str(h["_id"])
-        h.pop("_id", None)
-    valid_hospitals = filter_hospitals(hospitals, case_type)
+    valid_hospitals = filter_hospitals(cached_hospitals, case_type)
     return {"hospitals": valid_hospitals}
 
-@app.get("/overpass/signals")
-async def get_overpass_signals():
-    """
-    Fetch real traffic signal locations from OSM Overpass API
-    for Ernakulam district bounding box.
-    bbox: south=9.85, west=76.18, north=10.25, east=76.65
-    """
-    overpass_url = "https://overpass-api.de/api/interpreter"
-    query = """
-[out:json][timeout:30];
-(
-  node["highway"="traffic_signals"](9.85,76.18,10.25,76.65);
-);
-out body;
-"""
-    try:
-        async with httpx.AsyncClient(timeout=35.0) as client:
-            resp = await client.post(overpass_url, data={"data": query})
-            resp.raise_for_status()
-            data = resp.json()
-        result = []
-        for elem in data.get("elements", []):
-            if elem.get("type") == "node":
-                result.append({
-                    "id": elem["id"],
-                    "lat": elem["lat"],
-                    "lon": elem["lon"],
-                    "name": elem.get("tags", {}).get("name", ""),
-                })
-        return {"signals": result, "count": len(result)}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Overpass API error: {str(e)}")
+# ── DRIVER LOCATION ENDPOINTS (Nearest Ambulance Feature) ─────────────────────
+
+@app.put("/drivers/location")
+async def update_driver_location(location_data: dict, current_user: dict = Depends(auth.get_current_user)):
+    """Drivers periodically report their GPS position and availability status."""
+    auth.check_role(current_user, ["driver"])
+    db = get_database()
+    
+    lat = location_data.get("lat")
+    lon = location_data.get("lon")
+    status = location_data.get("status", "available")
+    
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {
+            "current_lat": lat,
+            "current_lon": lon,
+            "driver_status": status,
+            "last_location_update": datetime.utcnow()
+        }}
+    )
+    return {"message": "Location updated", "status": status}
+
+@app.get("/drivers/active")
+async def get_active_drivers():
+    """Return all currently active (non-offline) drivers with their positions."""
+    db = get_database()
+    cursor = db.users.find({
+        "role": "driver",
+        "is_approved": True,
+        "driver_status": {"$nin": ["offline", None]},
+        "current_lat": {"$ne": None},
+        "current_lon": {"$ne": None}
+    })
+    drivers = await cursor.to_list(length=500)
+    result = []
+    for d in drivers:
+        result.append({
+            "id": str(d["_id"]),
+            "name": d.get("name", "Unknown"),
+            "phone": d.get("phone"),
+            "lat": d["current_lat"],
+            "lon": d["current_lon"],
+            "status": d.get("driver_status", "available"),
+            "last_update": d.get("last_location_update", "").isoformat() if d.get("last_location_update") else None
+        })
+    return {"drivers": result}
+
+@app.get("/drivers/nearby")
+async def get_nearby_drivers(lat: float, lon: float, radius_km: float = 50.0):
+    """Return active drivers sorted by distance from given coordinates."""
+    db = get_database()
+    cursor = db.users.find({
+        "role": "driver",
+        "is_approved": True,
+        "driver_status": {"$nin": ["offline", None]},
+        "current_lat": {"$ne": None},
+        "current_lon": {"$ne": None}
+    })
+    drivers = await cursor.to_list(length=500)
+    
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371  # Earth radius in km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        return R * c
+    
+    result = []
+    for d in drivers:
+        dist = haversine(lat, lon, d["current_lat"], d["current_lon"])
+        if dist <= radius_km:
+            result.append({
+                "id": str(d["_id"]),
+                "name": d.get("name", "Unknown"),
+                "phone": d.get("phone"),
+                "lat": d["current_lat"],
+                "lon": d["current_lon"],
+                "status": d.get("driver_status", "available"),
+                "distance_km": round(dist, 2),
+                "last_update": d.get("last_location_update", "").isoformat() if d.get("last_location_update") else None
+            })
+    
+    result.sort(key=lambda x: x["distance_km"])
+    return {"drivers": result}
+
+
 
 @app.post("/route")
 async def get_route(req: RouteRequest):
-    global G
+    global G, cached_hospitals
     if G is None:
         raise HTTPException(status_code=500, detail="Graph not loaded")
     
-    db = get_database()
-    cursor = db.hospitals.find({})
-    hospitals = await cursor.to_list(length=1000)
-    for h in hospitals:
-        h["id"] = str(h["_id"])
-        h.pop("_id", None)
-    
-    # 1. Select Hospital based on capability
-    valid_hospitals = filter_hospitals(hospitals, req.case_type)
-    if not valid_hospitals:
-        # Failsafe Mode: If no capable hospital available, just return nearest general hospital
-        valid_hospitals = hospitals
-    
-    # Simple straight-line distance to find the nearest valid hospital roughly
+    # 1. Select Hospital
     best_hospital = None
-    min_dist = float('inf')
-    for h in valid_hospitals:
-        dist = math.hypot(h["lat"] - req.start_lat, h["lon"] - req.start_lon)
-        if dist < min_dist:
-            min_dist = dist
-            best_hospital = h
-            
+    
+    if req.hospital_id:
+        # User selected a specific hospital
+        for h in cached_hospitals:
+            if str(h.get("_id")) == req.hospital_id or h.get("id") == req.hospital_id:
+                best_hospital = h
+                break
+        if not best_hospital:
+            raise HTTPException(status_code=404, detail="Selected hospital not found")
+    else:
+        # Automatic selection based on capability
+        valid_hospitals = filter_hospitals(cached_hospitals, req.case_type)
+        if not valid_hospitals:
+            # Failsafe Mode: If no capable hospital available, just return nearest general hospital
+            valid_hospitals = cached_hospitals
+        
+        # Simple straight-line distance to find the nearest valid hospital roughly
+        min_dist = float('inf')
+        for h in valid_hospitals:
+            dist = math.hypot(h["lat"] - req.start_lat, h["lon"] - req.start_lon)
+            if dist < min_dist:
+                min_dist = dist
+                best_hospital = h
+                
     if best_hospital is None:
         raise HTTPException(status_code=404, detail="No suitable hospital found.")
 
@@ -235,64 +323,7 @@ def get_signals_status():
     return {"signals": [{"id": s["id"], "lat": s["lat"], "lon": s["lon"], "state": s["state"]} for s in signals]}
 
 
-@app.get("/traffic/status")
-def traffic_status():
-    """Return overall traffic statistics (min/avg/max speeds)"""
-    if G is None:
-        raise HTTPException(status_code=500, detail="Graph not loaded")
-    return {"traffic": get_overall_traffic(G)}
 
-
-@app.post("/traffic/randomize")
-def traffic_randomize():
-    """Manually trigger a random traffic update."""
-    if G is None:
-        raise HTTPException(status_code=500, detail="Graph not loaded")
-    randomize_traffic(G)
-    return {"status": "ok"}
-
-
-@app.post("/traffic/route")
-async def traffic_for_route(req: RouteRequest):
-    """Return per-segment speeds for a requested route between start and hospital."""
-    db = get_database()
-    cursor = db.hospitals.find({})
-    hospitals = await cursor.to_list(length=1000)
-    for h in hospitals:
-        h["id"] = str(h["_id"])
-        h.pop("_id", None)
-
-    # reuse /route logic to pick hospital and compute route nodes
-    valid_hospitals = filter_hospitals(hospitals, req.case_type)
-    if not valid_hospitals:
-        valid_hospitals = hospitals
-    best_hospital = None
-    min_dist = float('inf')
-    for h in valid_hospitals:
-        dist = math.hypot(h["lat"] - req.start_lat, h["lon"] - req.start_lon)
-        if dist < min_dist:
-            min_dist = dist
-            best_hospital = h
-    if best_hospital is None:
-        raise HTTPException(status_code=404, detail="No suitable hospital found.")
-    start_node = get_nearest_node(G, req.start_lat, req.start_lon)
-    end_node = get_nearest_node(G, best_hospital["lat"], best_hospital["lon"])
-    try:
-        route_nodes, travel_time = calculate_route_astar(G, start_node, end_node)
-    except Exception:
-        route_nodes, travel_time = calculate_route_dijkstra(G, start_node, end_node)
-    segments = get_route_traffic(G, route_nodes)
-    return {"segments": segments, "estimated_time": travel_time}
-
-@app.post("/preemption/trigger/{signal_id}")
-def manual_override(signal_id: int):
-    global signals
-    for s in signals:
-        if s["id"] == signal_id:
-            s["state"] = "PREEMPTED_GREEN"
-            s["timer"] = 25
-            return {"status": "success", "message": f"Signal {signal_id} preempted"}
-    raise HTTPException(status_code=404, detail="Signal not found")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

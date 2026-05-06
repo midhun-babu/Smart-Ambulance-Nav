@@ -6,21 +6,23 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
+import HospitalDashboard from './pages/HospitalDashboard'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { useGps } from './hooks/useGps'
 import * as ambulanceService from './services/ambulanceService'
-import { LogOut, AlertCircle } from 'lucide-react'
+import { LogOut, AlertCircle, ArrowLeft } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 function MainApp() {
     const { user, logout } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const [graphLoaded, setGraphLoaded] = useState(false)
     const [loading, setLoading] = useState(true)
 
     const [signals, setSignals] = useState([])
-    const [osmSignals, setOsmSignals] = useState([])
     const [allHospitals, setAllHospitals] = useState([])
+    const [activeDrivers, setActiveDrivers] = useState([])
 
-    // Ambulance state
     const [simulationActive, setSimulationActive] = useState(false)
     const [simulationSpeed, setSimulationSpeed] = useState(1)
     const [ambulancePos, setAmbulancePos] = useState(null)
@@ -34,13 +36,10 @@ function MainApp() {
         setAlerts(prev => [msg, ...prev].slice(0, 8))
     }
 
-    // GPS state logic extracted to hook
     const { userLocation, setUserLocation, gpsLoading, handleGetGps, startGpsTracking, stopGpsTracking } = useGps(addAlert)
 
-    // Live tracking state
     const [liveTrackingActive, setLiveTrackingActive] = useState(false)
 
-    // Manual Picking state
     const [isPickingLocation, setIsPickingLocation] = useState(false)
     const [pickedLocation, setPickedLocation] = useState(null)
 
@@ -66,16 +65,33 @@ function MainApp() {
         }
         checkGraph()
         fetchAllHospitals()
-        fetchOsmSignals()
+        fetchActiveDrivers()
 
         let signalInterval;
+        let driverInterval;
         if (graphLoaded) {
             signalInterval = setInterval(fetchSignals, 2000)
         }
+        driverInterval = setInterval(fetchActiveDrivers, 5000)
         return () => {
             if (signalInterval) clearInterval(signalInterval)
+            if (driverInterval) clearInterval(driverInterval)
         }
     }, [graphLoaded])
+
+    useEffect(() => {
+        if (user?.role !== 'driver') return
+        const reportLocation = () => {
+            if (userLocation) {
+                const status = (simulationActive || liveTrackingActive) ? 'not available' : 'available'
+                ambulanceService.updateDriverLocation(userLocation[0], userLocation[1], status)
+                    .catch(e => console.warn('Location report failed', e))
+            }
+        }
+        reportLocation()
+        const interval = setInterval(reportLocation, 10000)
+        return () => clearInterval(interval)
+    }, [user, userLocation, simulationActive, liveTrackingActive])
 
     const fetchSignals = async () => {
         try {
@@ -95,19 +111,21 @@ function MainApp() {
         }
     }
 
-    const fetchOsmSignals = async () => {
+
+
+    const fetchActiveDrivers = async () => {
         try {
-            const res = await ambulanceService.getOsmSignals()
-            if (res.data.signals) setOsmSignals(res.data.signals)
+            const res = await ambulanceService.getActiveDrivers()
+            if (res.data.drivers) setActiveDrivers(res.data.drivers)
         } catch (e) {
-            console.error('Failed to fetch OSM signals', e)
+            console.error('Failed to fetch active drivers', e)
         }
     }
 
-    const startSimulation = async (caseType, startLat, startLon) => {
+    const startSimulation = async (caseType, startLat, startLon, hospitalId = null) => {
         setLoading(true)
         try {
-            const res = await ambulanceService.getRoute(startLat, startLon, caseType)
+            const res = await ambulanceService.getRoute(startLat, startLon, caseType, hospitalId)
             setTargetHospital(res.data.hospital)
             setRoute(res.data.route)
             routeRef.current = res.data.route
@@ -131,10 +149,10 @@ function MainApp() {
         }
     }
 
-    const startLiveTracking = async (caseType, startLat, startLon) => {
+    const startLiveTracking = async (caseType, startLat, startLon, hospitalId = null) => {
         setLoading(true)
         try {
-            const res = await ambulanceService.getRoute(startLat, startLon, caseType)
+            const res = await ambulanceService.getRoute(startLat, startLon, caseType, hospitalId)
             const hospitalData = res.data.hospital
             const initialRoute = res.data.route
             
@@ -152,14 +170,12 @@ function MainApp() {
 
             if (simIntervalRef.current) clearInterval(simIntervalRef.current)
             
-            // Track last recalc position to avoid re-requesting on tiny drift
             let lastRecalcLat = startLat
             let lastRecalcLon = startLon
 
             startGpsTracking(async (newLoc) => {
                 setAmbulancePos(newLoc)
                 
-                // Recalculate route if moved more than ~30 meters
                 const dLat = newLoc[0] - lastRecalcLat
                 const dLon = newLoc[1] - lastRecalcLon
                 const distApprox = Math.sqrt(dLat * dLat + dLon * dLon)
@@ -168,7 +184,7 @@ function MainApp() {
                     lastRecalcLat = newLoc[0]
                     lastRecalcLon = newLoc[1]
                     try {
-                        const routeRes = await ambulanceService.getRoute(newLoc[0], newLoc[1], caseType)
+                        const routeRes = await ambulanceService.getRoute(newLoc[0], newLoc[1], caseType, hospitalId)
                         setRoute(routeRes.data.route)
                         routeRef.current = routeRes.data.route
                         setTravelTime(routeRes.data.estimated_time_minutes)
@@ -240,7 +256,6 @@ function MainApp() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
-            {/* Dashboard Area */}
             <div className="w-1/3 min-w-[380px] max-w-[450px] h-full shadow-2xl z-20 bg-white flex flex-col border-r border-slate-200">
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
                     <div className="flex items-center gap-3">
@@ -248,19 +263,31 @@ function MainApp() {
                             {user?.name?.charAt(0) || 'D'}
                         </div>
                         <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black leading-none">Driver Session</p>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black leading-none">{isAdmin ? 'Admin View' : 'Driver Session'}</p>
                             <p className="text-sm font-black text-slate-800 mt-1">{user?.name}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={logout}
-                        className="p-2 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
-                        title="Sign Out"
-                    >
-                        <LogOut size={16} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {isAdmin && (
+                            <Link
+                                to="/admin"
+                                className="p-2 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all shadow-sm active:scale-95"
+                                title="Back to Admin Dashboard"
+                            >
+                                <ArrowLeft size={16} />
+                            </Link>
+                        )}
+                        <button
+                            onClick={logout}
+                            className="p-2 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                            title="Sign Out"
+                        >
+                            <LogOut size={16} />
+                        </button>
+                    </div>
                 </div>
                 <Dashboard
+                    isAdmin={isAdmin}
                     startSimulation={startSimulation}
                     startLiveTracking={startLiveTracking}
                     stopSimulation={stopSimulation}
@@ -280,16 +307,16 @@ function MainApp() {
                     userLocation={userLocation}
                     onGetGPS={handleGetGps}
                     gpsLoading={gpsLoading}
+                    activeDrivers={activeDrivers}
+                    allHospitals={allHospitals}
                 />
             </div>
 
-            {/* Map Area */}
             <div className="flex-1 h-full relative">
                 <MapComponent
                     ambulancePos={ambulancePos}
                     route={route}
                     signals={signals}
-                    osmSignals={osmSignals}
                     allHospitals={allHospitals}
                     targetHospital={targetHospital}
                     userLocation={userLocation}
@@ -297,6 +324,7 @@ function MainApp() {
                     isPickingLocation={isPickingLocation}
                     pickedLocation={pickedLocation}
                     setPickedLocation={setPickedLocation}
+                    activeDrivers={activeDrivers}
                 />
             </div>
         </div>
@@ -306,6 +334,7 @@ function MainApp() {
 function RootRedirect() {
     const { user } = useAuth();
     if (user?.role === 'admin') return <Navigate to="/admin" />;
+    if (user?.role === 'hospital') return <Navigate to="/hospital" />;
     return <Navigate to="/dashboard" />;
 }
 
@@ -324,6 +353,11 @@ function App() {
                     <Route path="/admin" element={
                         <ProtectedRoute>
                             <AdminDashboard />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/hospital" element={
+                        <ProtectedRoute>
+                            <HospitalDashboard />
                         </ProtectedRoute>
                     } />
                     <Route path="/" element={<RootRedirect />} />

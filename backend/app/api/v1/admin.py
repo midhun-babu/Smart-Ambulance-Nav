@@ -1,7 +1,7 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.db.session import get_database
 from app.api.v1.auth import get_current_user, check_role
+from app.schemas.base import UserUpdate, HospitalUpdate
 from bson import ObjectId
 from pydantic import BaseModel
 from typing import List, Optional
@@ -10,9 +10,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 def parse_id(id_str: str):
     try:
+        # If it's already an ObjectId-compatible string, parse it
         return ObjectId(id_str)
     except:
-        raise HTTPException(status_code=400, detail="Invalid ID format")
+        # If it's a numeric ID (from our initial data), we might need to handle it differently
+        # But for consistency, we should be using the stringified ObjectId from the DB.
+        # For now, let's just keep it strict but ensure we call it correctly.
+        raise HTTPException(status_code=400, detail=f"Invalid ID format: {id_str}")
 
 # --- USER MANAGEMENT ---
 
@@ -69,10 +73,20 @@ async def update_user(user_id: str, update_data: dict, current_user: dict = Depe
     check_role(current_user, ["admin"])
     db = get_database()
     
-    # Remove sensitive/immutable fields
+    # Remove immutable fields
     update_data.pop("_id", None)
     update_data.pop("password_hash", None)
-    update_data.pop("role", None)
+    
+    # Manual phone validation
+    if "phone" in update_data:
+        from app.schemas.base import validate_phone_number
+        try:
+            update_data["phone"] = validate_phone_number(update_data["phone"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    if not update_data:
+        return {"message": "No changes provided"}
     
     result = await db.users.update_one(
         {"_id": parse_id(user_id)},
@@ -84,16 +98,6 @@ async def update_user(user_id: str, update_data: dict, current_user: dict = Depe
 
 # --- HOSPITAL MANAGEMENT ---
 
-class HospitalUpdate(BaseModel):
-    name: Optional[str] = None
-    lat: Optional[float] = None
-    lon: Optional[float] = None
-    trauma_capability: Optional[bool] = None
-    cardiac_capability: Optional[bool] = None
-    general_capability: Optional[bool] = None
-    icu_beds_available: Optional[int] = None
-    specialization: Optional[str] = None
-    capabilities: Optional[List[str]] = None
 
 @router.get("/hospitals")
 async def admin_get_hospitals(current_user: dict = Depends(get_current_user)):
@@ -118,8 +122,19 @@ async def update_hospital(hospital_id: str, update_data: dict, current_user: dic
     check_role(current_user, ["admin"])
     db = get_database()
     
-    # Remove _id from update data if present
+    # Remove immutable fields
     update_data.pop("_id", None)
+    
+    # Manual phone validation
+    if "phone" in update_data:
+        from app.schemas.base import validate_phone_number
+        try:
+            update_data["phone"] = validate_phone_number(update_data["phone"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+            
+    if not update_data:
+        return {"message": "No changes provided"}
     
     result = await db.hospitals.update_one(
         {"_id": parse_id(hospital_id)},
